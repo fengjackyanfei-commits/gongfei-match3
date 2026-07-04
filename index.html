@@ -1273,7 +1273,7 @@
     const TELEGRAM_BOT_USERNAME = "miegongbot";
     const TELEGRAM_BOT_URL = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
     const ADMIN_TELEGRAM_IDS = ["7015545469"];
-    const APP_BUILD = "admin-leaderboard-entry-20260704";
+    const APP_BUILD = "firebase-public-leaderboard-20260704";
     const saveKey = "cpc-match3-save-v2";
 
     const people = [
@@ -1365,6 +1365,10 @@
         points: 0,
         maxUnlocked: 1,
         lastLevel: 1,
+        bestLevel: 1,
+        todayKey: new Date().toLocaleDateString("en-CA"),
+        todayScore: 0,
+        todayBestLevel: 1,
         stars: {},
         coins: 120,
         lives: 5,
@@ -1378,6 +1382,7 @@
         const saved = JSON.parse(localStorage.getItem(saveKey) || "{}");
         const merged = { ...defaultSave(), ...saved };
         if (saved.lastLevel == null) merged.lastLevel = Number(saved.maxUnlocked) || 1;
+        if (saved.bestLevel == null) merged.bestLevel = Number(saved.maxUnlocked) || 1;
         return merged;
       } catch {
         return defaultSave();
@@ -1561,7 +1566,7 @@
       const currentStars = Object.values(state.stars).reduce((sum, value) => sum + value, 0);
       const current = {
         name: playerDisplayName(),
-        level: state.maxUnlocked || 1,
+        level: state.bestLevel || state.maxUnlocked || 1,
         score: state.points || 0,
         stars: currentStars,
         isCurrent: true
@@ -1581,6 +1586,22 @@
       return [current, ...demo]
         .sort((a, b) => (b.level - a.level) || (b.score - a.score) || (b.stars - a.stars))
         .slice(0, 10);
+    }
+
+    function ensureTodayStats() {
+      const today = new Date().toLocaleDateString("en-CA");
+      if (state.todayKey !== today) {
+        state.todayKey = today;
+        state.todayScore = 0;
+        state.todayBestLevel = 1;
+      }
+    }
+
+    function recordLeaderboardStats(roundScore, levelId) {
+      ensureTodayStats();
+      state.bestLevel = Math.max(Number(state.bestLevel) || 1, Number(levelId) || 1);
+      state.todayBestLevel = Math.max(Number(state.todayBestLevel) || 1, Number(levelId) || 1);
+      state.todayScore = (Number(state.todayScore) || 0) + Math.max(0, Number(roundScore) || 0);
     }
 
     function renderHeroLeaderboard() {
@@ -1609,12 +1630,19 @@
       `).join("");
     }
 
-    function openLeaderboard() {
-      const totalRows = leaderboardRows();
-      const dailyRows = leaderboardRows().map((item, index) => ({
+    async function openLeaderboard() {
+      let totalRows = leaderboardRows();
+      let dailyRows = leaderboardRows().map((item, index) => ({
         ...item,
-        score: item.isCurrent ? score || state.points || 0 : Math.max(0, item.score - index * 120)
+        score: item.isCurrent ? state.todayScore || score || 0 : Math.max(0, item.score - index * 120)
       })).sort((a, b) => (b.score - a.score) || (b.level - a.level));
+      try {
+        const cloud = await window.firebaseCloud?.loadLeaderboards?.();
+        if (cloud?.total?.length) totalRows = cloud.total;
+        if (cloud?.daily?.length) dailyRows = cloud.daily;
+      } catch (error) {
+        console.warn("Leaderboard load failed", error);
+      }
       renderCompactLeaderboard(el.totalLeaderboard, totalRows);
       renderCompactLeaderboard(el.dailyLeaderboard, dailyRows);
       el.leaderboardModal?.classList.add("active");
@@ -1892,6 +1920,7 @@
     function finishLevel(won) {
       busy = true;
       const earned = won ? starsEarned() : 0;
+      recordLeaderboardStats(score, activeLevel.id);
       if (won) {
         state.stars[activeLevel.id] = Math.max(state.stars[activeLevel.id] || 0, earned);
         if (state.user) {
@@ -2198,7 +2227,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
     import { browserLocalPersistence, getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, setPersistence, signInWithPopup, signInWithRedirect } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
-    import { doc, getDoc, getFirestore, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+    import { collection, doc, getDoc, getDocs, getFirestore, limit, orderBy, query, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCEsxzPapIGmscl47IvQSj-_opQ5xQcpSg",
@@ -2253,6 +2282,10 @@
         points: Number(source.points) || 0,
         maxUnlocked: Number(source.maxUnlocked) || 1,
         lastLevel: Number(source.lastLevel) || Number(source.maxUnlocked) || 1,
+        bestLevel: Number(source.bestLevel) || Number(source.maxUnlocked) || 1,
+        todayKey: source.todayKey || new Date().toLocaleDateString("en-CA"),
+        todayScore: Number(source.todayScore) || 0,
+        todayBestLevel: Number(source.todayBestLevel) || 1,
         stars: source.stars || {},
         coins: Number(source.coins) || 0,
         lives: Number(source.lives) || 0,
@@ -2274,14 +2307,74 @@
       }, { merge: true });
     }
 
+    function leaderboardDocId(source) {
+      return String(source.user?.uid || auth.currentUser?.uid || "").replace(/\//g, "_");
+    }
+
+    function leaderboardName(source) {
+      return source.user?.name || auth.currentUser?.displayName || auth.currentUser?.email || "匿名玩家";
+    }
+
+    async function uploadLeaderboard(source) {
+      const clean = cleanSave(source);
+      const id = leaderboardDocId(source);
+      if (!id || source.guest) return;
+      const todayKey = new Date().toLocaleDateString("en-CA");
+      const sameDay = clean.todayKey === todayKey;
+      await setDoc(doc(db, "leaderboard", id), {
+        uid: id,
+        provider: source.user?.provider || (auth.currentUser ? "google" : "telegram"),
+        name: leaderboardName(source),
+        picture: source.user?.picture || auth.currentUser?.photoURL || "",
+        totalScore: clean.points,
+        bestLevel: clean.bestLevel,
+        todayKey,
+        todayScore: sameDay ? clean.todayScore : 0,
+        todayBestLevel: sameDay ? clean.todayBestLevel : 1,
+        updatedAt: Date.now(),
+        syncedAt: serverTimestamp()
+      }, { merge: true });
+    }
+
+    function mapLeaderboardDoc(docSnap, mode) {
+      const data = docSnap.data();
+      return {
+        name: data.name || "匿名玩家",
+        score: Number(mode === "daily" ? data.todayScore : data.totalScore) || 0,
+        level: Number(mode === "daily" ? data.todayBestLevel : data.bestLevel) || 1,
+        stars: 0,
+        isCurrent: data.uid === leaderboardDocId(window.gameCloudBridge.getLocalSave())
+      };
+    }
+
+    async function loadLeaderboards() {
+      const totalQuery = query(collection(db, "leaderboard"), orderBy("totalScore", "desc"), limit(10));
+      const todayKey = new Date().toLocaleDateString("en-CA");
+      const dailyQuery = query(collection(db, "leaderboard"), orderBy("todayScore", "desc"), limit(10));
+      const [totalSnap, dailySnap] = await Promise.all([getDocs(totalQuery), getDocs(dailyQuery)]);
+      return {
+        total: totalSnap.docs.map(item => mapLeaderboardDoc(item, "total")),
+        daily: dailySnap.docs
+          .map(item => ({ data: item.data(), row: mapLeaderboardDoc(item, "daily") }))
+          .filter(item => item.data.todayKey === todayKey)
+          .map(item => item.row)
+      };
+    }
+
     window.firebaseCloud = {
       signIn: signInGoogle,
       isSignedIn: () => Boolean(auth.currentUser),
+      loadLeaderboards,
       scheduleSave(source) {
-        if (!auth.currentUser) return;
         clearTimeout(saveTimer);
         const snapshot = cleanSave(source);
-        saveTimer = setTimeout(() => uploadSave(snapshot).catch(console.error), 500);
+        const fullSnapshot = { ...source, ...snapshot };
+        saveTimer = setTimeout(() => {
+          Promise.all([
+            uploadSave(fullSnapshot).catch(console.error),
+            uploadLeaderboard(fullSnapshot).catch(console.error)
+          ]);
+        }, 500);
       }
     };
     window.dispatchEvent(new Event("firebaseCloudReady"));
