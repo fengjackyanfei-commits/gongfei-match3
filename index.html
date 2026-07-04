@@ -1272,7 +1272,7 @@
     const GOOGLE_CLIENT_ID = "908844567115-s8qk27t1n3bi56ssjth8evifbjss4dkg.apps.googleusercontent.com";
     const TELEGRAM_BOT_USERNAME = "miegongbot";
     const TELEGRAM_BOT_URL = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
-    const APP_BUILD = "result-leaderboard-direct-game-20260704";
+    const APP_BUILD = "resume-last-level-20260704";
     const saveKey = "cpc-match3-save-v2";
 
     const people = [
@@ -1363,6 +1363,7 @@
         registeredAt: "",
         points: 0,
         maxUnlocked: 1,
+        lastLevel: 1,
         stars: {},
         coins: 120,
         lives: 5,
@@ -1373,7 +1374,10 @@
 
     function loadSave() {
       try {
-        return { ...defaultSave(), ...JSON.parse(localStorage.getItem(saveKey) || "{}") };
+        const saved = JSON.parse(localStorage.getItem(saveKey) || "{}");
+        const merged = { ...defaultSave(), ...saved };
+        if (saved.lastLevel == null) merged.lastLevel = Number(saved.maxUnlocked) || 1;
+        return merged;
       } catch {
         return defaultSave();
       }
@@ -1404,6 +1408,7 @@
         };
         localStorage.setItem(saveKey, JSON.stringify(state));
         renderShell();
+        if (el.game.classList.contains("active")) startLevel(getResumeLevel());
       },
       setFirebaseUser(firebaseUser) {
         state.user = firebaseUser ? {
@@ -1418,6 +1423,7 @@
         state.guest = false;
         localStorage.setItem(saveKey, JSON.stringify(state));
         renderShell();
+        if (el.game.classList.contains("active")) startLevel(getResumeLevel());
       }
     };
 
@@ -1444,6 +1450,7 @@
       if (!state.registeredAt) state.registeredAt = new Date().toISOString();
       localStorage.setItem(saveKey, JSON.stringify(state));
       renderShell();
+      if (el.game.classList.contains("active")) startLevel(getResumeLevel());
       return true;
     }
 
@@ -1474,6 +1481,17 @@
 
     function randomPiece() {
       return Math.floor(Math.random() * people.length);
+    }
+
+    function clampLevel(value) {
+      const n = Number(value) || 1;
+      return Math.max(1, Math.min(levels.length, Math.floor(n)));
+    }
+
+    function getResumeLevel() {
+      const signedIn = Boolean(state.user) || Boolean(window.firebaseCloud?.isSignedIn?.());
+      if (!signedIn) return 1;
+      return clampLevel(Math.min(state.lastLevel || state.maxUnlocked || 1, state.maxUnlocked || 1));
     }
 
     function show(screen) {
@@ -1743,6 +1761,9 @@
       }
       playSound("tap");
       activeLevel = levels[id - 1] || levels[0];
+      state.lastLevel = activeLevel.id;
+      localStorage.setItem(saveKey, JSON.stringify(state));
+      window.firebaseCloud?.scheduleSave(state);
       score = 0;
       moves = 0;
       combo = 0;
@@ -1865,8 +1886,10 @@
         state.stars[activeLevel.id] = Math.max(state.stars[activeLevel.id] || 0, earned);
         if (state.user) {
           state.maxUnlocked = Math.max(state.maxUnlocked, Math.min(levels.length, activeLevel.id + 1));
+          state.lastLevel = Math.min(levels.length, activeLevel.id + 1);
         } else {
           state.maxUnlocked = activeLevel.id === 1 ? 2 : 1;
+          state.lastLevel = 1;
         }
         state.coins += 20 + earned * 10;
         state.points += score;
@@ -1876,6 +1899,7 @@
       } else {
         state.lives = Math.max(0, state.lives - 1);
         state.maxUnlocked = 1;
+        state.lastLevel = 1;
         save();
         playSound("lose");
       }
@@ -2125,7 +2149,7 @@
       if (audioOn) playSound("tap");
     });
     el.startGameBtn?.addEventListener("click", () => startLevel(1));
-    document.querySelector("#continueBtn").addEventListener("click", () => startLevel(state.maxUnlocked));
+    document.querySelector("#continueBtn").addEventListener("click", () => startLevel(getResumeLevel()));
     document.querySelector("#backHome").addEventListener("click", () => startLevel(1));
     document.querySelector("#hammer").addEventListener("click", useHammer);
     document.querySelector("#shuffle").addEventListener("click", useShuffle);
@@ -2156,7 +2180,7 @@
     setupFirebaseGoogle();
     renderShell();
     setupDailyReward();
-    startLevel(1);
+    startLevel(getResumeLevel());
   </script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
@@ -2215,6 +2239,7 @@
         registeredAt: source.registeredAt || "",
         points: Number(source.points) || 0,
         maxUnlocked: Number(source.maxUnlocked) || 1,
+        lastLevel: Number(source.lastLevel) || Number(source.maxUnlocked) || 1,
         stars: source.stars || {},
         coins: Number(source.coins) || 0,
         lives: Number(source.lives) || 0,
