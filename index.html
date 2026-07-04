@@ -1597,8 +1597,9 @@
         try {
           await window.firebaseCloud.signIn();
         } catch (error) {
-          if (error?.code !== "auth/popup-closed-by-user") {
-            alert("Google 登录失败，请稍后重试。");
+          if (!["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(error?.code)) {
+            console.error("Google sign-in failed", error);
+            alert(`Google 登录失败：${error?.code || "请检查网络后重试"}`);
           }
         }
       });
@@ -1651,7 +1652,7 @@
   </script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-    import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+    import { getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
     import { doc, getDoc, getFirestore, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -1667,7 +1668,31 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
     let saveTimer;
+
+    function prefersRedirectLogin() {
+      return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+        (window.matchMedia?.("(pointer: coarse)").matches && window.innerWidth < 820);
+    }
+
+    async function signInGoogle() {
+      if (prefersRedirectLogin()) {
+        sessionStorage.setItem("googleLoginPending", "1");
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+      try {
+        return await signInWithPopup(auth, provider);
+      } catch (error) {
+        if (["auth/popup-blocked", "auth/web-storage-unsupported", "auth/operation-not-supported-in-this-environment"].includes(error?.code)) {
+          sessionStorage.setItem("googleLoginPending", "1");
+          await signInWithRedirect(auth, provider);
+          return;
+        }
+        throw error;
+      }
+    }
 
     function cleanSave(source) {
       return {
@@ -1697,7 +1722,7 @@
     }
 
     window.firebaseCloud = {
-      signIn: () => signInWithPopup(auth, provider),
+      signIn: signInGoogle,
       scheduleSave(source) {
         if (!auth.currentUser) return;
         clearTimeout(saveTimer);
@@ -1705,6 +1730,14 @@
         saveTimer = setTimeout(() => uploadSave(snapshot).catch(console.error), 500);
       }
     };
+
+    getRedirectResult(auth).then(result => {
+      if (result?.user) sessionStorage.removeItem("googleLoginPending");
+    }).catch(error => {
+      sessionStorage.removeItem("googleLoginPending");
+      console.error("Google redirect sign-in failed", error);
+      alert(`Google 登录返回失败：${error?.code || "请重新尝试"}`);
+    });
 
     onAuthStateChanged(auth, async firebaseUser => {
       if (!firebaseUser) return;
