@@ -600,6 +600,7 @@
       width: 100%;
       justify-content: space-between;
     }
+    #userChip { display: none; }
     .userchip {
       order: 3;
       max-width: 145px;
@@ -623,6 +624,7 @@
     #googleLogin {
       order: 4;
       min-height: 42px;
+      min-width: 84px;
       border: 3px solid var(--outline);
       border-radius: 14px;
       background: linear-gradient(#43c3ff,#1998ec);
@@ -630,6 +632,27 @@
       text-shadow: 0 2px #12699b;
       box-shadow: 0 5px 0 #0875ba;
     }
+    #googleLogin.account-login {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 52px;
+      min-width: 52px;
+      min-height: 52px;
+      padding: 0;
+      border-radius: 50%;
+      overflow: hidden;
+      background: var(--cream);
+      text-shadow: none;
+    }
+    #googleLogin.account-login img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    #googleLogin.account-login span { display: none; }
     .home, .game { position: relative; z-index: 1; }
     .map-head {
       margin: 4px 18px 18px;
@@ -1066,7 +1089,8 @@
       resultTitle: document.querySelector("#resultTitle"),
       resultText: document.querySelector("#resultText"),
       resultStars: document.querySelector("#resultStars"),
-      nextLevel: document.querySelector("#nextLevel")
+      nextLevel: document.querySelector("#nextLevel"),
+      googleLogin: document.querySelector("#googleLogin")
     };
 
     function defaultSave() {
@@ -1157,6 +1181,16 @@
     }
 
     function renderShell() {
+      el.googleLogin.classList.toggle("account-login", Boolean(state.user));
+      if (state.user) {
+        el.googleLogin.innerHTML = `${state.user.picture ? `<img src="${state.user.picture}" alt="${state.user.name || "玩家"}头像">` : ""}<span>${state.user.name || "玩家"}</span>`;
+        el.googleLogin.setAttribute("aria-label", "打开个人中心");
+        el.googleLogin.title = state.user.name || "玩家";
+      } else {
+        el.googleLogin.textContent = "Google 登录";
+        el.googleLogin.setAttribute("aria-label", "Google 登录");
+        el.googleLogin.removeAttribute("title");
+      }
       el.userChip.classList.toggle("is-user", Boolean(state.user));
       if (state.user) {
         el.userChip.setAttribute("role", "button");
@@ -1306,6 +1340,12 @@
     }
 
     function startLevel(id) {
+      if (!state.user && id > 1) {
+        el.message.textContent = "";
+        alert("游客可以试玩第一关。登录 Google 后才能挑战第二关和保存进度。");
+        requestGoogleLogin();
+        return;
+      }
       if (state.lives <= 0) {
         alert("体力不足，完成每日签到可以获得补给！");
         return;
@@ -1433,7 +1473,11 @@
       const earned = won ? starsEarned() : 0;
       if (won) {
         state.stars[activeLevel.id] = Math.max(state.stars[activeLevel.id] || 0, earned);
-        state.maxUnlocked = Math.max(state.maxUnlocked, Math.min(levels.length, activeLevel.id + 1));
+        if (state.user) {
+          state.maxUnlocked = Math.max(state.maxUnlocked, Math.min(levels.length, activeLevel.id + 1));
+        } else {
+          state.maxUnlocked = activeLevel.id === 1 ? 2 : 1;
+        }
         state.coins += 20 + earned * 10;
         state.points += score;
         save();
@@ -1441,12 +1485,17 @@
         speakPraise("恭喜，灭共成功", true);
       } else {
         state.lives = Math.max(0, state.lives - 1);
+        state.maxUnlocked = 1;
         save();
         playSound("lose");
       }
       el.resultTitle.textContent = won ? "恭喜，灭共成功" : "挑战失败";
-      el.resultText.textContent = won ? `得分 ${score}，获得 ${earned} 星，下一关已解锁。` : `得分 ${score}，目标还没有全部完成。`;
+      el.resultText.textContent = won
+        ? (state.user ? `得分 ${score}，获得 ${earned} 星，下一关已解锁。` : `得分 ${score}，获得 ${earned} 星。登录 Google 后才能进入第二关。`)
+        : `得分 ${score}，挑战失败，需要从第一关重新开始。`;
       el.resultStars.textContent = won ? "★".repeat(earned) + "☆".repeat(3 - earned) : "☆☆☆";
+      el.nextLevel.textContent = won && !state.user ? "登录继续" : "下一关";
+      document.querySelector("#retryLevel").textContent = won ? "重玩" : "从第一关重来";
       el.nextLevel.disabled = !won || activeLevel.id >= levels.length;
       el.modal.classList.add("active");
     }
@@ -1596,21 +1645,27 @@
       });
     }
 
+    async function requestGoogleLogin() {
+      if (state.user) {
+        openProfile();
+        return;
+      }
+      if (!window.firebaseCloud) {
+        alert("云存档服务正在加载，请稍后再试。");
+        return;
+      }
+      try {
+        await window.firebaseCloud.signIn();
+      } catch (error) {
+        if (!["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(error?.code)) {
+          console.error("Google sign-in failed", error);
+          alert(`Google 登录失败：${error?.code || "请检查网络后重试"}`);
+        }
+      }
+    }
+
     function setupFirebaseGoogle() {
-      document.querySelector("#googleLogin").addEventListener("click", async () => {
-        if (!window.firebaseCloud) {
-          alert("云存档服务正在加载，请稍后再试。");
-          return;
-        }
-        try {
-          await window.firebaseCloud.signIn();
-        } catch (error) {
-          if (!["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(error?.code)) {
-            console.error("Google sign-in failed", error);
-            alert(`Google 登录失败：${error?.code || "请检查网络后重试"}`);
-          }
-        }
-      });
+      document.querySelector("#googleLogin").addEventListener("click", requestGoogleLogin);
     }
 
     document.querySelector("#guestLogin").addEventListener("click", () => {
@@ -1641,10 +1696,14 @@
     document.querySelector("#extraMoves").addEventListener("click", useExtraMoves);
     document.querySelector("#retryLevel").addEventListener("click", () => {
       el.modal.classList.remove("active");
-      startLevel(activeLevel.id);
+      startLevel(goalsMet() ? activeLevel.id : 1);
     });
     document.querySelector("#nextLevel").addEventListener("click", () => {
       el.modal.classList.remove("active");
+      if (!state.user) {
+        requestGoogleLogin();
+        return;
+      }
       startLevel(Math.min(levels.length, activeLevel.id + 1));
     });
     document.querySelector("#modalMap").addEventListener("click", () => {
