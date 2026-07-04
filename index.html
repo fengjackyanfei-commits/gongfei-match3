@@ -532,6 +532,272 @@
     .dialog h2 { font-size:2rem;color:#6b3dca }.dialog .stars{font-size:2.5rem}.dialog-actions{justify-content:center}.dialog-actions button{flex:1}
     .reward-icon{font-size:4rem;filter:drop-shadow(0 5px 2px #c98b28)}
     @media(min-width:700px){body{padding:20px}.app{border-radius:28px;box-shadow:0 25px 70px #20475b66}.topbar{position:relative}.side .panel:nth-child(2){position:absolute;bottom:18px}.game{position:relative;padding-bottom:95px}}
+
+    /* Hand-drawn grassland game skin */
+    :root {
+      --grass: #b9f77f;
+      --grass-dark: #65a33f;
+      --cream: #fffbd7;
+      --wood: #9b591d;
+      --wood-light: #d68b35;
+      --outline: #24331d;
+      --sky-button: #28aaf4;
+    }
+    body {
+      background: var(--grass);
+      background-image:
+        radial-gradient(ellipse at 18% 16%, transparent 0 15px, rgba(63,125,34,.55) 16px 18px, transparent 19px),
+        radial-gradient(ellipse at 81% 28%, transparent 0 12px, rgba(63,125,34,.45) 13px 15px, transparent 16px),
+        linear-gradient(180deg, #bdfb86, #b0ef78);
+      background-size: 190px 230px, 250px 280px, auto;
+    }
+    .app {
+      position: relative;
+      background: transparent;
+      overflow: hidden;
+    }
+    .app::before,
+    .app::after {
+      position: fixed;
+      z-index: 0;
+      color: rgba(58,116,31,.62);
+      font-size: 38px;
+      line-height: 1;
+      content: "〽";
+      pointer-events: none;
+      transform: rotate(-14deg);
+    }
+    .app::before { top: 19%; left: max(18px, calc(50% - 250px)); }
+    .app::after { top: 43%; right: max(20px, calc(50% - 245px)); transform: rotate(17deg); }
+    .topbar {
+      position: relative;
+      z-index: 5;
+      min-height: 112px;
+      padding: max(14px, env(safe-area-inset-top)) 14px 18px;
+      background: transparent;
+      color: var(--outline);
+      box-shadow: none;
+      align-items: flex-start;
+    }
+    .brand {
+      position: absolute;
+      top: max(18px, env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      min-width: 132px;
+      padding: 8px 18px 9px;
+      border: 3px solid #111;
+      border-radius: 10px;
+      background: #111;
+      color: #fff;
+      text-align: center;
+      box-shadow: 0 4px 0 rgba(0,0,0,.22);
+    }
+    .brand h1 { font-size: 1.05rem; text-shadow: none; white-space: nowrap; }
+    .brand h1::before { content: "- "; }
+    .brand h1::after { content: " -"; }
+    .userbar.auth {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .userchip {
+      order: 3;
+      max-width: 145px;
+      border: 3px solid var(--outline);
+      border-radius: 16px;
+      background: rgba(255,255,255,.48);
+      color: var(--outline);
+      box-shadow: 0 4px 0 rgba(45,85,28,.28);
+    }
+    .sound-btn {
+      order: 1;
+      width: 47px;
+      min-height: 47px!important;
+      border: 3px solid #111!important;
+      border-radius: 10px!important;
+      background: linear-gradient(#42c2ff,#168fe2)!important;
+      color: white!important;
+      box-shadow: 0 5px 0 #0b558c!important;
+    }
+    #guestLogin { display: none; }
+    #googleLogin {
+      order: 4;
+      min-height: 42px;
+      border: 3px solid var(--outline);
+      border-radius: 14px;
+      background: linear-gradient(#43c3ff,#1998ec);
+      color: white;
+      text-shadow: 0 2px #12699b;
+      box-shadow: 0 5px 0 #0875ba;
+    }
+    .home, .game { position: relative; z-index: 1; }
+    .map-head {
+      margin: 4px 18px 18px;
+      padding: 11px 14px;
+      border: 3px solid var(--outline);
+      border-radius: 14px;
+      background: var(--cream);
+      color: var(--outline);
+      box-shadow: 0 5px 0 #78ad48;
+    }
+    .map-head button {
+      border: 3px solid var(--outline);
+      background: linear-gradient(#43c3ff,#1998ec);
+      color: white;
+      text-shadow: 0 2px #12699b;
+      box-shadow: 0 5px 0 #0875ba;
+    }
+    .map {
+      min-height: 1080px;
+      padding-top: 24px;
+      background: transparent;
+    }
+    .map::before {
+      width: 9px;
+      background: repeating-linear-gradient(#f8e6b5 0 15px,#d5b96f 15px 29px);
+      box-shadow: 0 0 0 3px rgba(83,132,48,.25);
+    }
+    .level {
+      border: 3px solid var(--outline);
+      border-radius: 13px;
+      background: linear-gradient(#fffce2 0 68%,#f5eeb5 68%);
+      color: var(--outline);
+      box-shadow: 0 6px 0 #688d35, 0 9px 14px rgba(55,95,31,.25);
+      transform: rotate(-2deg);
+    }
+    .level:nth-child(even) { transform: rotate(2deg); }
+    .level strong { color: #e67d23; text-shadow: 0 2px #fff; }
+    .level .stars { color: #ffb216; text-shadow: 0 1px var(--outline); }
+    .level.locked { background: linear-gradient(#aab5a0,#88977d); color: #edf3e7; }
+    .profile-panel {
+      border: 4px solid var(--outline)!important;
+      border-radius: 16px;
+      background: var(--cream);
+      box-shadow: 0 8px 0 #6f421a!important;
+    }
+    .profile-panel .stat {
+      border: 2px solid #8e672d;
+      border-radius: 10px;
+      background: #fffef0;
+    }
+    .game {
+      min-height: calc(100vh - 112px);
+      padding: 4px 10px 108px;
+      background: transparent;
+    }
+    .hud { margin: 0 20px 14px; }
+    .hud .stat {
+      border: 3px solid var(--outline);
+      border-radius: 12px;
+      background: #111;
+      color: white;
+      box-shadow: 0 4px 0 rgba(45,85,28,.3);
+    }
+    .hud .stat span { color: #e9f7dc; }
+    .board-wrap {
+      position: relative;
+      padding: 12px;
+      border: 5px solid var(--outline);
+      border-radius: 17px;
+      background: linear-gradient(#c37a2f,#8f4c18);
+      box-shadow: inset 0 0 0 4px #e2a14d, 0 8px 0 #5e3516, 0 14px 22px rgba(50,82,30,.3);
+    }
+    .board-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 7px;
+      border: 2px dashed rgba(255,225,159,.58);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+    .board { position: relative; z-index: 1; gap: 5px; }
+    .tile {
+      overflow: visible;
+      border: 2px solid var(--outline);
+      border-radius: 8px;
+      background: linear-gradient(#fffde2,#f4edbd);
+      box-shadow: 0 4px 0 #7e704a, 0 6px 7px rgba(45,45,24,.2);
+    }
+    .tile:nth-child(3n) { transform: rotate(.7deg); }
+    .tile:nth-child(3n + 1) { transform: rotate(-.7deg); }
+    .tile:hover, .tile:focus-visible, .tile.selected {
+      transform: translateY(-4px) scale(1.04);
+      box-shadow: 0 0 0 3px #ffe43d, 0 7px 0 #7e704a;
+    }
+    .tile .avatar {
+      width: 88%;
+      border: 0;
+      border-radius: 9px;
+      box-shadow: none;
+      background: transparent;
+    }
+    .side .panel:first-child { margin: 0 10px 12px; }
+    #backHome {
+      border: 3px solid var(--outline);
+      background: linear-gradient(#43c3ff,#1998ec);
+      color: white;
+      box-shadow: 0 5px 0 #0875ba;
+    }
+    #backHome::after { content: "⌂"; }
+    .goal {
+      border: 3px solid var(--outline);
+      border-radius: 11px;
+      background: var(--cream);
+      box-shadow: 0 4px 0 #7aa849;
+    }
+    .side .panel:nth-child(2) {
+      bottom: max(10px,env(safe-area-inset-bottom));
+      border: 4px solid var(--outline);
+      border-radius: 14px;
+      background: linear-gradient(#b86e29,#8e4c19);
+      box-shadow: inset 0 0 0 3px #d89340, 0 7px 0 #5b3213;
+    }
+    .booster {
+      position: relative;
+      min-height: 63px;
+      border: 3px solid var(--outline);
+      border-radius: 11px;
+      background: linear-gradient(#43c3ff,#1998ec);
+      color: white;
+      text-shadow: 0 2px #116eaa;
+      box-shadow: 0 5px 0 #0875ba;
+    }
+    .booster small { color: white; font-size: .78rem; }
+    .booster::after {
+      content: "+";
+      position: absolute;
+      top: -10px;
+      right: -8px;
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border: 2px solid white;
+      border-radius: 50%;
+      background: #111;
+      color: white;
+      font-size: 1rem;
+      text-shadow: none;
+    }
+    .message { color: var(--outline); text-align: center; text-shadow: 0 1px white; }
+    .modal { background: rgba(69,105,41,.64); }
+    .dialog {
+      border: 4px solid var(--outline);
+      border-radius: 18px;
+      background: var(--cream);
+      box-shadow: 0 9px 0 #6d421c, 0 20px 45px rgba(37,60,24,.45);
+    }
+    .dialog h2 { color: #e07822; text-shadow: 0 2px white; }
+    .dialog-actions button, #closeProfile {
+      border: 3px solid var(--outline);
+      background: linear-gradient(#43c3ff,#1998ec);
+      box-shadow: 0 5px 0 #0875ba;
+    }
+    @media(min-width:700px) {
+      body { padding: 20px; }
+      .app { border: 5px solid rgba(35,55,25,.28); background: rgba(185,247,127,.88); }
+      .topbar { min-height: 112px; }
+    }
   </style>
 </head>
 <body>
