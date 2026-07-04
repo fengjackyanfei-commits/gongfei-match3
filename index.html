@@ -851,6 +851,29 @@
       border-radius: 6px;
       background: rgba(25,42,18,.16);
     }
+    .telegram-card {
+      display: grid;
+      gap: 9px;
+      margin: 10px 0 12px;
+      padding: 12px;
+      border: 3px solid var(--outline);
+      border-radius: 13px;
+      background: rgba(255,251,215,.88);
+      box-shadow: 0 4px 0 #7aa849;
+    }
+    .telegram-card p {
+      margin: 0;
+      color: var(--outline);
+      font-size: .88rem;
+      line-height: 1.4;
+    }
+    .telegram-card button {
+      justify-self: start;
+      border: 3px solid var(--outline);
+      background: linear-gradient(#43c3ff,#1998ec);
+      color: white;
+      box-shadow: 0 5px 0 #0875ba;
+    }
     .tile.pickable { animation: cardBreath 1.8s ease-in-out infinite alternate; }
     .tile.picked {
       opacity: 0;
@@ -928,6 +951,11 @@
             <button id="continueBtn" type="button">继续游戏</button>
           </div>
           <div id="levelMap" class="map" aria-label="关卡地图"></div>
+        </section>
+
+        <section class="telegram-card" id="telegramCard">
+          <p id="telegramStatus">想在 Telegram 里玩？请从 @miegongbot 打开游戏，Telegram 会自动登录并保存进度。</p>
+          <button id="telegramOpen" type="button">打开 @miegongbot</button>
         </section>
 
         <aside class="panel flat profile-panel">
@@ -1031,6 +1059,8 @@
 
   <script>
     const GOOGLE_CLIENT_ID = "908844567115-s8qk27t1n3bi56ssjth8evifbjss4dkg.apps.googleusercontent.com";
+    const TELEGRAM_BOT_USERNAME = "miegongbot";
+    const TELEGRAM_BOT_URL = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
     const saveKey = "cpc-match3-save-v2";
 
     const people = [
@@ -1102,7 +1132,9 @@
       resultText: document.querySelector("#resultText"),
       resultStars: document.querySelector("#resultStars"),
       nextLevel: document.querySelector("#nextLevel"),
-      googleLogin: document.querySelector("#googleLogin")
+      googleLogin: document.querySelector("#googleLogin"),
+      telegramStatus: document.querySelector("#telegramStatus"),
+      telegramOpen: document.querySelector("#telegramOpen")
     };
     let firebaseCloudLoading = false;
 
@@ -1268,8 +1300,24 @@
       el.totalStars.textContent = starTotal;
       el.coins.textContent = state.coins;
       el.lives.textContent = `${state.lives} / 5`;
+      renderTelegramEntry();
       renderMap();
       renderRoster();
+    }
+
+    function renderTelegramEntry() {
+      const tgUser = getTelegramWebAppUser();
+      if (!el.telegramStatus || !el.telegramOpen) return;
+      if (tgUser?.id) {
+        const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ").trim() || tgUser.username || "Telegram 玩家";
+        el.telegramStatus.textContent = `已连接 Telegram：${name}。从这里进入会自动登录并保存本机进度。`;
+        el.telegramOpen.textContent = "已在 Telegram 中";
+        el.telegramOpen.disabled = true;
+      } else {
+        el.telegramStatus.textContent = `想在 Telegram 里玩？请从 @${TELEGRAM_BOT_USERNAME} 的 Mini App 入口打开，Telegram 会自动登录。`;
+        el.telegramOpen.textContent = `打开 @${TELEGRAM_BOT_USERNAME}`;
+        el.telegramOpen.disabled = false;
+      }
     }
 
     function openProfile() {
@@ -1763,6 +1811,14 @@
       state.guest = true;
       state.user = null;
       save();
+    });
+    el.telegramOpen?.addEventListener("click", () => {
+      const webApp = window.Telegram?.WebApp;
+      if (webApp?.openTelegramLink) {
+        webApp.openTelegramLink(TELEGRAM_BOT_URL);
+      } else {
+        window.location.href = TELEGRAM_BOT_URL;
+      }
     });
     el.userChip.addEventListener("click", openProfile);
     el.userChip.addEventListener("keydown", event => {
