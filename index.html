@@ -1341,7 +1341,8 @@
     }
 
     function startLevel(id) {
-      if (!state.user && id > 1) {
+      const signedIn = Boolean(state.user) || Boolean(window.firebaseCloud?.isSignedIn?.());
+      if (!signedIn && id > 1) {
         el.message.textContent = "";
         alert("游客可以试玩第一关。登录 Google 后才能挑战第二关和保存进度。");
         requestGoogleLogin();
@@ -1725,7 +1726,7 @@
   </script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-    import { getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+    import { browserLocalPersistence, getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, setPersistence, signInWithPopup, signInWithRedirect } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
     import { doc, getDoc, getFirestore, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -1743,6 +1744,7 @@
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
     let saveTimer;
+    await setPersistence(auth, browserLocalPersistence);
 
     function prefersRedirectLogin() {
       return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
@@ -1796,6 +1798,7 @@
 
     window.firebaseCloud = {
       signIn: signInGoogle,
+      isSignedIn: () => Boolean(auth.currentUser),
       scheduleSave(source) {
         if (!auth.currentUser) return;
         clearTimeout(saveTimer);
@@ -1804,15 +1807,7 @@
       }
     };
 
-    getRedirectResult(auth).then(result => {
-      if (result?.user) sessionStorage.removeItem("googleLoginPending");
-    }).catch(error => {
-      sessionStorage.removeItem("googleLoginPending");
-      console.error("Google redirect sign-in failed", error);
-      alert(`Google 登录返回失败：${error?.code || "请重新尝试"}`);
-    });
-
-    onAuthStateChanged(auth, async firebaseUser => {
+    async function syncFirebaseUser(firebaseUser) {
       if (!firebaseUser) return;
       try {
         const local = cleanSave(window.gameCloudBridge.getLocalSave());
@@ -1834,7 +1829,23 @@
         console.error("Cloud save sync failed", error);
         window.gameCloudBridge.setFirebaseUser(firebaseUser);
       }
+    }
+
+    getRedirectResult(auth).then(async result => {
+      if (result?.user) {
+        sessionStorage.removeItem("googleLoginPending");
+        window.gameCloudBridge.setFirebaseUser(result.user);
+        await syncFirebaseUser(result.user);
+      } else if (auth.currentUser) {
+        window.gameCloudBridge.setFirebaseUser(auth.currentUser);
+      }
+    }).catch(error => {
+      sessionStorage.removeItem("googleLoginPending");
+      console.error("Google redirect sign-in failed", error);
+      alert(`Google 登录返回失败：${error?.code || "请重新尝试"}`);
     });
+
+    onAuthStateChanged(auth, syncFirebaseUser);
   </script>
 </body>
 </html>
