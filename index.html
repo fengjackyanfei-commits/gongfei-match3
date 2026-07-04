@@ -1272,7 +1272,8 @@
     const GOOGLE_CLIENT_ID = "908844567115-s8qk27t1n3bi56ssjth8evifbjss4dkg.apps.googleusercontent.com";
     const TELEGRAM_BOT_USERNAME = "miegongbot";
     const TELEGRAM_BOT_URL = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
-    const APP_BUILD = "resume-last-level-20260704";
+    const ADMIN_TELEGRAM_IDS = ["7015545469"];
+    const APP_BUILD = "admin-leaderboard-entry-20260704";
     const saveKey = "cpc-match3-save-v2";
 
     const people = [
@@ -1430,6 +1431,15 @@
     function getTelegramWebAppUser() {
       const webApp = window.Telegram?.WebApp;
       return webApp?.initDataUnsafe?.user || null;
+    }
+
+    function isTelegramAdmin() {
+      const tgUser = getTelegramWebAppUser();
+      return Boolean(tgUser?.id && ADMIN_TELEGRAM_IDS.includes(String(tgUser.id)));
+    }
+
+    function wantsAdminLeaderboard() {
+      return new URLSearchParams(window.location.search).get("admin") === "leaderboard";
     }
 
     function telegramUserToPlayer(tgUser) {
@@ -2181,6 +2191,9 @@
     renderShell();
     setupDailyReward();
     startLevel(getResumeLevel());
+    if (wantsAdminLeaderboard() && isTelegramAdmin()) {
+      setTimeout(openLeaderboard, 350);
+    }
   </script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
