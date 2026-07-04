@@ -1065,6 +1065,7 @@
     let audioOn = true;
     let audioContext = null;
     let lastVoiceAt = 0;
+    window.speechSynthesis?.cancel();
 
     const el = {
       home: document.querySelector("#homeScreen"),
@@ -1597,6 +1598,7 @@
 
     function speakPraise(text, force = false) {
       if (!audioOn || !window.speechSynthesis) return;
+      if (!/^恭喜，通过灭共第\s*\d+\s*关$/.test(text)) return;
       const now = Date.now();
       if (!force && now - lastVoiceAt < 3500) return;
       lastVoiceAt = now;
