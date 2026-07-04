@@ -1006,7 +1006,14 @@
       { name: "王沪宁", title: "中共中央政治局常委", image: "https://commons.wikimedia.org/wiki/Special:FilePath/%E7%8E%8B%E6%B2%AA%E5%AE%81_Wang_Huning_20221023.jpg" },
       { name: "蔡奇", title: "中共中央政治局常委", image: "https://commons.wikimedia.org/wiki/Special:FilePath/%E8%94%A1%E5%A5%87_Cai_Qi_20221023.jpg" },
       { name: "丁薛祥", title: "中共中央政治局常委", image: "https://commons.wikimedia.org/wiki/Special:FilePath/Ding_Xuexiang_2023.jpg" },
-      { name: "李希", title: "中共中央政治局常委", image: "https://commons.wikimedia.org/wiki/Special:FilePath/Li_Xi_(cropped)_(2025)_01.jpg" }
+      { name: "李希", title: "中共中央政治局常委", image: "https://commons.wikimedia.org/wiki/Special:FilePath/Li_Xi_(cropped)_(2025)_01.jpg" },
+      { name: "王毅", title: "中共中央政治局委员", image: "" },
+      { name: "尹力", title: "中共中央政治局委员", image: "" },
+      { name: "石泰峰", title: "中共中央政治局委员", image: "" },
+      { name: "刘国中", title: "中共中央政治局委员", image: "" },
+      { name: "李干杰", title: "中共中央政治局委员", image: "" },
+      { name: "李书磊", title: "中共中央政治局委员", image: "" },
+      { name: "李鸿忠", title: "中共中央政治局委员", image: "" }
     ];
 
     const levels = Array.from({ length: 30 }, (_, i) => {
@@ -1015,7 +1022,7 @@
       return {
         id: n,
         cards,
-        types: n === 1 ? 5 : Math.min(people.length, 5 + Math.floor(n / 2)),
+        types: n === 1 ? 5 : people.length,
         unlockText: n === 1 ? "新手关：三张相同卡牌即可消除" :
           n === 2 ? "超难第二关：多层遮挡，七格卡槽放满即失败" :
           "多层叠牌挑战：合理控制卡槽，清空全部卡牌",
@@ -1129,13 +1136,13 @@
     };
 
     function initials(name) {
-      return name.length > 2 ? name.slice(-2) : name;
+      return name;
     }
 
     function avatar(index) {
       const p = people[index];
       return `<div class="avatar a${index}">
-        <img src="${p.image}" alt="${p.name}头像" loading="lazy" onerror="this.classList.add('is-missing')">
+        ${p.image ? `<img src="${p.image}" alt="${p.name}头像" loading="lazy" onerror="this.classList.add('is-missing')">` : `<img class="is-missing" alt="">`}
         <span>${initials(p.name)}</span>
       </div>`;
     }
@@ -1238,6 +1245,7 @@
       cards = [];
       tray = [];
       lastMove = null;
+      let typeCursor = 0;
       const layerCounts = level.id === 1 ? [12, 9, 6] :
         level.id === 2 ? [30, 24, 21, 15] :
         splitIntoLayers(level.cards, Math.min(5, 3 + Math.floor(level.id / 6)));
@@ -1246,7 +1254,7 @@
         const positions = layerPositions(count, z, level.id);
         const types = [];
         for (let i = 0; i < count / 3; i++) {
-          const type = (i + z * 2 + level.id) % level.types;
+          const type = typeCursor++ % level.types;
           types.push(type, type, type);
         }
         shuffleArray(types);
