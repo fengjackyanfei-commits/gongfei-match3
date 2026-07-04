@@ -246,6 +246,83 @@
       font-weight: 800;
     }
 
+    .leaderboard-dialog {
+      width: min(94vw, 760px);
+      max-height: 92vh;
+      overflow: auto;
+      padding: 14px;
+    }
+
+    .leaderboard-dialog h2 {
+      margin: 0 0 8px;
+      font-size: 1.45rem;
+    }
+
+    .leaderboard-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      text-align: left;
+    }
+
+    .leaderboard-mini {
+      display: grid;
+      gap: 5px;
+      padding: 8px;
+      border: 2px solid var(--outline, rgba(32,24,22,.9));
+      border-radius: 12px;
+      background: rgba(255,251,215,.9);
+    }
+
+    .leaderboard-mini h3 {
+      margin: 0 0 3px;
+      text-align: center;
+      color: #5d3415;
+      font-size: .95rem;
+    }
+
+    .mini-row {
+      display: grid;
+      grid-template-columns: 24px 1fr auto;
+      gap: 5px;
+      align-items: center;
+      padding: 5px 6px;
+      border-radius: 8px;
+      background: rgba(255,255,255,.58);
+      font-size: .72rem;
+    }
+
+    .mini-row.is-current {
+      background: #ffe88b;
+      font-weight: 900;
+    }
+
+    .mini-row b {
+      color: #e07822;
+      font-size: .78rem;
+      white-space: nowrap;
+    }
+
+    .mini-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .mini-meta {
+      color: #68804c;
+      font-size: .66rem;
+    }
+
+    @media(max-width:420px) {
+      .leaderboard-dialog { padding: 10px; }
+      .leaderboard-columns { gap: 5px; }
+      .mini-row { grid-template-columns: 18px 1fr; }
+      .mini-row b { grid-column: 2; font-size: .68rem; }
+      .mini-meta { display: none; }
+    }
+
     .panel {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -1052,7 +1129,7 @@
       </div>
     </header>
 
-    <section id="homeScreen" class="screen active">
+    <section id="homeScreen" class="screen">
       <div class="home hero-home">
         <section class="panel leaderboard-panel">
           <h2 class="leaderboard-title">🏆 灭共英雄榜</h2>
@@ -1088,7 +1165,7 @@
       </div>
     </section>
 
-    <section id="gameScreen" class="screen">
+    <section id="gameScreen" class="screen active">
       <div class="game">
         <section>
           <div class="hud">
@@ -1138,6 +1215,7 @@
       <div class="stars" id="resultStars"></div>
       <div class="dialog-actions">
         <button id="retryLevel" type="button" class="secondary">重玩</button>
+        <button id="viewLeaderboard" type="button" class="secondary">查看榜单</button>
         <button id="nextLevel" type="button">下一关</button>
         <button id="modalMap" type="button" class="ghost">返回地图</button>
       </div>
@@ -1173,11 +1251,28 @@
     </div>
   </div>
 
+  <div id="leaderboardModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+    <div class="dialog leaderboard-dialog">
+      <h2 id="leaderboardTitle">🏆 灭共英雄榜</h2>
+      <div class="leaderboard-columns">
+        <section class="leaderboard-mini">
+          <h3>总积分榜</h3>
+          <div id="totalLeaderboard"></div>
+        </section>
+        <section class="leaderboard-mini">
+          <h3>今日积分榜</h3>
+          <div id="dailyLeaderboard"></div>
+        </section>
+      </div>
+      <div class="dialog-actions"><button id="closeLeaderboard" type="button">关闭</button></div>
+    </div>
+  </div>
+
   <script>
     const GOOGLE_CLIENT_ID = "908844567115-s8qk27t1n3bi56ssjth8evifbjss4dkg.apps.googleusercontent.com";
     const TELEGRAM_BOT_USERNAME = "miegongbot";
     const TELEGRAM_BOT_URL = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
-    const APP_BUILD = "hero-leaderboard-home-20260704";
+    const APP_BUILD = "result-leaderboard-direct-game-20260704";
     const saveKey = "cpc-match3-save-v2";
 
     const people = [
@@ -1253,7 +1348,10 @@
       telegramStatus: document.querySelector("#telegramStatus"),
       telegramOpen: document.querySelector("#telegramOpen"),
       heroLeaderboard: document.querySelector("#heroLeaderboard"),
-      startGameBtn: document.querySelector("#startGameBtn")
+      startGameBtn: document.querySelector("#startGameBtn"),
+      leaderboardModal: document.querySelector("#leaderboardModal"),
+      totalLeaderboard: document.querySelector("#totalLeaderboard"),
+      dailyLeaderboard: document.querySelector("#dailyLeaderboard")
     };
     let firebaseCloudLoading = false;
 
@@ -1470,6 +1568,28 @@
           <span class="leader-score">${Number(item.score || 0).toLocaleString("zh-CN")} 分</span>
         </div>
       `).join("");
+    }
+
+    function renderCompactLeaderboard(target, rows) {
+      if (!target) return;
+      target.innerHTML = rows.slice(0, 10).map((item, index) => `
+        <div class="mini-row${item.isCurrent ? " is-current" : ""}">
+          <span>${index + 1}</span>
+          <span class="mini-name">${item.isCurrent ? "你 · " : ""}${item.name}<span class="mini-meta"> · 第${item.level}关</span></span>
+          <b>${Number(item.score || 0).toLocaleString("zh-CN")}</b>
+        </div>
+      `).join("");
+    }
+
+    function openLeaderboard() {
+      const totalRows = leaderboardRows();
+      const dailyRows = leaderboardRows().map((item, index) => ({
+        ...item,
+        score: item.isCurrent ? score || state.points || 0 : Math.max(0, item.score - index * 120)
+      })).sort((a, b) => (b.score - a.score) || (b.level - a.level));
+      renderCompactLeaderboard(el.totalLeaderboard, totalRows);
+      renderCompactLeaderboard(el.dailyLeaderboard, dailyRows);
+      el.leaderboardModal?.classList.add("active");
     }
 
     function renderTelegramEntry() {
@@ -1766,6 +1886,7 @@
       el.resultStars.textContent = won ? "★".repeat(earned) + "☆".repeat(3 - earned) : "☆☆☆";
       el.nextLevel.textContent = won && !state.user ? "登录继续" : "下一关";
       document.querySelector("#retryLevel").textContent = won ? "重玩" : "从第一关重来";
+      document.querySelector("#modalMap").textContent = "第一关";
       el.nextLevel.disabled = !won || activeLevel.id >= levels.length;
       el.modal.classList.add("active");
     }
@@ -2005,10 +2126,14 @@
     });
     el.startGameBtn?.addEventListener("click", () => startLevel(1));
     document.querySelector("#continueBtn").addEventListener("click", () => startLevel(state.maxUnlocked));
-    document.querySelector("#backHome").addEventListener("click", () => { show("home"); renderShell(); });
+    document.querySelector("#backHome").addEventListener("click", () => startLevel(1));
     document.querySelector("#hammer").addEventListener("click", useHammer);
     document.querySelector("#shuffle").addEventListener("click", useShuffle);
     document.querySelector("#extraMoves").addEventListener("click", useExtraMoves);
+    document.querySelector("#viewLeaderboard").addEventListener("click", openLeaderboard);
+    document.querySelector("#closeLeaderboard").addEventListener("click", () => {
+      el.leaderboardModal?.classList.remove("active");
+    });
     document.querySelector("#retryLevel").addEventListener("click", () => {
       el.modal.classList.remove("active");
       startLevel(goalsMet() ? activeLevel.id : 1);
@@ -2023,15 +2148,15 @@
     });
     document.querySelector("#modalMap").addEventListener("click", () => {
       el.modal.classList.remove("active");
-      show("home");
       busy = false;
-      renderShell();
+      startLevel(1);
     });
 
     setupTelegramLogin();
     setupFirebaseGoogle();
     renderShell();
     setupDailyReward();
+    startLevel(1);
   </script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
