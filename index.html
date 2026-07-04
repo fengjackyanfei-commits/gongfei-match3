@@ -112,7 +112,11 @@
       border: 1px solid var(--line);
       background: var(--panel);
       font-weight: 800;
+      cursor: pointer;
     }
+
+    .userchip.is-user:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(53,35,95,.18); }
+    .userchip.is-user:focus-visible { outline: 3px solid #ffe33e; outline-offset: 2px; }
 
     .userchip img {
       width: 26px;
@@ -440,6 +444,19 @@
       margin-top: 14px;
     }
 
+    .profile-card { text-align: left; }
+    .profile-hero { display:flex; align-items:center; gap:14px; margin-bottom:16px; }
+    .profile-hero img { width:64px; height:64px; border-radius:50%; object-fit:cover; border:4px solid #fff; box-shadow:0 4px 12px #6b3dca33; }
+    .profile-hero h2 { margin:0; font-size:1.35rem; }
+    .profile-hero p { margin:3px 0 0; font-size:.85rem; overflow-wrap:anywhere; }
+    .profile-stats { display:grid; grid-template-columns:repeat(2,1fr); gap:9px; }
+    .profile-stat { padding:11px; border-radius:16px; background:linear-gradient(145deg,#f0eaff,#fff7d6); text-align:center; }
+    .profile-stat span { display:block; color:#765f8c; font-size:.76rem; font-weight:800; }
+    .profile-stat b { display:block; margin-top:3px; color:#5432a8; font-size:1.2rem; }
+    .achievement-list { display:grid; gap:7px; margin-top:10px; }
+    .achievement { padding:9px 11px; border-radius:13px; background:#f0f1f7; color:#8a8296; font-weight:800; }
+    .achievement.unlocked { color:#4e369a; background:#fff0ad; }
+
     @media (max-width: 940px) {
       .topbar,
       .home,
@@ -620,6 +637,26 @@
     </div>
   </div>
 
+  <div id="profileModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="profileName">
+    <div class="dialog profile-card">
+      <div class="profile-hero">
+        <img id="profileAvatar" alt="玩家头像">
+        <div><h2 id="profileName">玩家</h2><p id="profileEmail"></p><p>注册时间：<span id="profileRegistered"></span></p></div>
+      </div>
+      <div class="profile-stats">
+        <div class="profile-stat"><span>累计积分</span><b id="profilePoints">0</b></div>
+        <div class="profile-stat"><span>累计星级</span><b id="profileStars">0</b></div>
+        <div class="profile-stat"><span>已解锁关卡</span><b id="profileLevels">1</b></div>
+        <div class="profile-stat"><span>金币奖励</span><b id="profileCoins">0</b></div>
+        <div class="profile-stat"><span>当前体力</span><b id="profileLives">5 / 5</b></div>
+        <div class="profile-stat"><span>道具奖励</span><b id="profileBoosters">0</b></div>
+      </div>
+      <h3>游戏成就</h3>
+      <div id="profileAchievements" class="achievement-list"></div>
+      <div class="dialog-actions"><button id="closeProfile" type="button">关闭</button></div>
+    </div>
+  </div>
+
   <script>
     const GOOGLE_CLIENT_ID = "908844567115-s8qk27t1n3bi56ssjth8evifbjss4dkg.apps.googleusercontent.com";
     const size = 8;
@@ -698,6 +735,8 @@
         user: null,
         guest: false,
         updatedAt: 0,
+        registeredAt: "",
+        points: 0,
         maxUnlocked: 1,
         stars: {},
         coins: 120,
@@ -731,7 +770,13 @@
           email: firebaseUser.email || "",
           picture: firebaseUser.photoURL || ""
         };
-        state = { ...defaultSave(), ...cloudSave, user, guest: false };
+        state = {
+          ...defaultSave(),
+          ...cloudSave,
+          registeredAt: cloudSave.registeredAt || firebaseUser.metadata?.creationTime || new Date().toISOString(),
+          user,
+          guest: false
+        };
         localStorage.setItem(saveKey, JSON.stringify(state));
         renderShell();
       },
@@ -742,6 +787,9 @@
           email: firebaseUser.email || "",
           picture: firebaseUser.photoURL || ""
         } : null;
+        if (firebaseUser && !state.registeredAt) {
+          state.registeredAt = firebaseUser.metadata?.creationTime || new Date().toISOString();
+        }
         state.guest = false;
         localStorage.setItem(saveKey, JSON.stringify(state));
         renderShell();
@@ -770,6 +818,16 @@
     }
 
     function renderShell() {
+      el.userChip.classList.toggle("is-user", Boolean(state.user));
+      if (state.user) {
+        el.userChip.setAttribute("role", "button");
+        el.userChip.setAttribute("tabindex", "0");
+        el.userChip.setAttribute("aria-label", "打开个人中心");
+      } else {
+        el.userChip.removeAttribute("role");
+        el.userChip.removeAttribute("tabindex");
+        el.userChip.removeAttribute("aria-label");
+      }
       if (state.user) {
         el.userChip.innerHTML = `${state.user.picture ? `<img src="${state.user.picture}" alt="">` : ""}<span>${state.user.name}</span>`;
       } else if (state.guest) {
@@ -784,6 +842,39 @@
       el.lives.textContent = `${state.lives} / 5`;
       renderMap();
       renderRoster();
+    }
+
+    function openProfile() {
+      if (!state.user) return;
+      const starTotal = Object.values(state.stars).reduce((sum, value) => sum + value, 0);
+      const boosterTotal = Object.values(state.boosters).reduce((sum, value) => sum + value, 0);
+      const registered = state.registeredAt ? new Date(state.registeredAt) : null;
+      document.querySelector("#profileAvatar").src = state.user.picture || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg";
+      document.querySelector("#profileName").textContent = state.user.name || "Google 玩家";
+      document.querySelector("#profileEmail").textContent = state.user.email || "";
+      document.querySelector("#profileRegistered").textContent = registered && !Number.isNaN(registered.getTime())
+        ? registered.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })
+        : "首次登录";
+      document.querySelector("#profilePoints").textContent = state.points.toLocaleString("zh-CN");
+      document.querySelector("#profileStars").textContent = starTotal;
+      document.querySelector("#profileLevels").textContent = state.maxUnlocked;
+      document.querySelector("#profileCoins").textContent = state.coins;
+      document.querySelector("#profileLives").textContent = `${state.lives} / 5`;
+      document.querySelector("#profileBoosters").textContent = boosterTotal;
+
+      const achievements = [
+        { icon: "🌟", name: "初露锋芒", unlocked: starTotal >= 1, text: "获得第一颗星" },
+        { icon: "🏆", name: "关卡达人", unlocked: state.maxUnlocked >= 4, text: "解锁第 4 关" },
+        { icon: "✨", name: "星光收藏家", unlocked: starTotal >= 12, text: "累计获得 12 颗星" },
+        { icon: "💰", name: "奖励富翁", unlocked: state.coins >= 500, text: "持有 500 金币" },
+        { icon: "🎯", name: "积分高手", unlocked: state.points >= 10000, text: "累计获得 10,000 积分" }
+      ];
+      document.querySelector("#profileAchievements").innerHTML = achievements.map(item => `
+        <div class="achievement ${item.unlocked ? "unlocked" : ""}">
+          ${item.icon} ${item.name} · ${item.unlocked ? "已达成" : item.text}
+        </div>
+      `).join("");
+      document.querySelector("#profileModal").classList.add("active");
     }
 
     function renderRoster() {
@@ -1080,6 +1171,7 @@
         state.stars[activeLevel.id] = Math.max(state.stars[activeLevel.id] || 0, earned);
         state.maxUnlocked = Math.max(state.maxUnlocked, Math.min(levels.length, activeLevel.id + 1));
         state.coins += 20 + earned * 10;
+        state.points += score;
         save();
         playSound("win");
         speakPraise("恭喜，灭共成功", true);
@@ -1271,6 +1363,16 @@
       state.user = null;
       save();
     });
+    el.userChip.addEventListener("click", openProfile);
+    el.userChip.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openProfile();
+      }
+    });
+    document.querySelector("#closeProfile").addEventListener("click", () => {
+      document.querySelector("#profileModal").classList.remove("active");
+    });
     document.querySelector("#soundToggle").addEventListener("click", event => {
       audioOn = !audioOn;
       if (!audioOn && window.speechSynthesis) speechSynthesis.cancel();
@@ -1328,6 +1430,8 @@
     function cleanSave(source) {
       return {
         updatedAt: Number(source.updatedAt) || Date.now(),
+        registeredAt: source.registeredAt || "",
+        points: Number(source.points) || 0,
         maxUnlocked: Number(source.maxUnlocked) || 1,
         stars: source.stars || {},
         coins: Number(source.coins) || 0,
