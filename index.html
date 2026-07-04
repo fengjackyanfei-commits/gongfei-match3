@@ -1273,7 +1273,7 @@
     const TELEGRAM_BOT_USERNAME = "miegongbot";
     const TELEGRAM_BOT_URL = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
     const ADMIN_TELEGRAM_IDS = ["7015545469"];
-    const APP_BUILD = "firebase-public-leaderboard-20260704";
+    const APP_BUILD = "hard-level-two-20260704";
     const saveKey = "cpc-match3-save-v2";
 
     const people = [
@@ -1295,7 +1295,7 @@
 
     const levels = Array.from({ length: 30 }, (_, i) => {
       const n = i + 1;
-      const cards = n === 1 ? 27 : n === 2 ? 90 : Math.min(108, 54 + Math.floor(n / 3) * 9);
+      const cards = n === 1 ? 27 : n === 2 ? 210 : Math.min(108, 54 + Math.floor(n / 3) * 9);
       return {
         id: n,
         cards,
@@ -1725,9 +1725,12 @@
       cards = [];
       tray = [];
       lastMove = null;
+      if (level.id === 2) {
+        createNightmareLevelTwo(level);
+        return;
+      }
       let typeCursor = 0;
       const layerCounts = level.id === 1 ? [12, 9, 6] :
-        level.id === 2 ? [30, 24, 21, 15] :
         splitIntoLayers(level.cards, Math.min(5, 3 + Math.floor(level.id / 6)));
       let cardId = 0;
       layerCounts.forEach((count, z) => {
@@ -1747,6 +1750,80 @@
           removed: false
         }));
       });
+    }
+
+    function createNightmareLevelTwo(level) {
+      const layerCounts = [39, 36, 33, 30, 27, 21, 15, 6, 3];
+      const pool = buildNightmarePool(level.cards, level.types);
+      let cardId = 0;
+      let cursor = 0;
+      layerCounts.forEach((count, z) => {
+        const positions = nightmareLayerPositions(count, z);
+        positions.forEach(pos => cards.push({
+          id: cardId++,
+          type: pool[cursor++],
+          x: pos.x,
+          y: pos.y,
+          z,
+          removed: false
+        }));
+      });
+    }
+
+    function buildNightmarePool(total, types) {
+      const order = [0, 7, 1, 8, 2, 9, 3, 10, 4, 11, 5, 12, 6, 13].filter(type => type < types);
+      const counts = Array(types).fill(0);
+      const target = total / types;
+      const pool = [];
+      let guard = 0;
+      while (pool.length < total && guard < total * 4) {
+        order.forEach(type => {
+          if (pool.length < total && counts[type] < target) {
+            pool.push(type);
+            counts[type] += 1;
+          }
+        });
+        guard += order.length;
+      }
+      seedNightmareOpening(pool, types);
+      return pool;
+    }
+
+    function seedNightmareOpening(pool, types) {
+      const opening = [0, 1, 2, 0, 1, 2, 0, 1, 2].filter(type => type < types);
+      const tailStart = pool.length - opening.length;
+      opening.forEach((targetType, index) => {
+        const tailIndex = tailStart + index;
+        if (pool[tailIndex] === targetType) return;
+        const swapIndex = pool.findIndex((type, poolIndex) => poolIndex < tailStart && type === targetType);
+        if (swapIndex >= 0) {
+          const oldType = pool[tailIndex];
+          pool[tailIndex] = targetType;
+          pool[swapIndex] = oldType;
+        }
+      });
+    }
+
+    function nightmareLayerPositions(count, z) {
+      const result = [];
+      const colsByLayer = [7, 6, 7, 6, 5, 5, 4, 3, 3];
+      const cols = colsByLayer[z] || 5;
+      const rows = Math.ceil(count / cols);
+      const xGap = z < 3 ? 10.2 : z < 6 ? 9.6 : 9.1;
+      const yGap = z < 3 ? 8.2 : z < 6 ? 7.8 : 7.4;
+      const width = (cols - 1) * xGap;
+      const height = (rows - 1) * yGap;
+      const xOffset = (z % 2 ? 4.9 : 0) + (z >= 4 ? 2.2 : 0);
+      const yOffset = (z % 3) * 2.3 + (z >= 5 ? 1.6 : 0);
+      for (let i = 0; i < count; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        result.push({
+          x: 50 - width / 2 + col * xGap + xOffset,
+          y: 45 - height / 2 + row * yGap + yOffset
+        });
+      }
+      return result;
     }
 
     function splitIntoLayers(total, layerCount) {
