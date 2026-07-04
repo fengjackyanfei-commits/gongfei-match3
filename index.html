@@ -1442,7 +1442,6 @@
         score += 90 + combo * 20;
         lastMove.matched = true;
         playSound(combo > 1 ? "combo" : "match", combo);
-        if (Math.random() < .55) speakPraise(combo > 2 ? "完美" : "真棒");
         renderGame();
         await wait(180);
       } else {
@@ -1482,7 +1481,7 @@
         state.points += score;
         save();
         playSound("win");
-        speakPraise("恭喜，灭共成功", true);
+        speakPraise(`恭喜，通过灭共第 ${activeLevel.id} 关`, true);
       } else {
         state.lives = Math.max(0, state.lives - 1);
         state.maxUnlocked = 1;
@@ -1604,9 +1603,14 @@
       if (force) speechSynthesis.cancel();
       const voice = new SpeechSynthesisUtterance(text);
       voice.lang = "zh-CN";
-      voice.rate = 1.12;
-      voice.pitch = 1.55;
-      voice.volume = .82;
+      const voices = speechSynthesis.getVoices?.() || [];
+      const preferredVoice = voices.find(item =>
+        /zh|cmn|yue/i.test(item.lang) && /female|xiaoxiao|xiaoyi|huihui|tingting|mei|hanhan|yaoyao|yating|google/i.test(item.name)
+      ) || voices.find(item => /zh|cmn|yue/i.test(item.lang));
+      if (preferredVoice) voice.voice = preferredVoice;
+      voice.rate = 1.2;
+      voice.pitch = 1.72;
+      voice.volume = 1;
       speechSynthesis.speak(voice);
     }
 
