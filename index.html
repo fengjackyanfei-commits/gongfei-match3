@@ -1,0 +1,1264 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#6240c4">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>共匪消消乐</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root {
+      --bg: #f6efe2;
+      --ink: #201816;
+      --soft: #6f615c;
+      --line: rgba(32, 24, 22, .14);
+      --panel: rgba(255, 252, 246, .84);
+      --tile: #fffdf8;
+      --red: #b52222;
+      --gold: #d5a326;
+      --blue: #22628a;
+      --green: #19715b;
+      --purple: #744d87;
+      --shadow: 0 20px 50px rgba(45, 30, 20, .16);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+      background:
+        linear-gradient(120deg, rgba(181, 34, 34, .12), transparent 38%),
+        radial-gradient(circle at 82% 18%, rgba(34, 98, 138, .18), transparent 26rem),
+        linear-gradient(145deg, #f2dfbf, var(--bg) 48%, #dfece4);
+    }
+
+    button {
+      border: 1px solid rgba(32, 24, 22, .18);
+      border-radius: 8px;
+      min-height: 40px;
+      padding: 0 14px;
+      font: inherit;
+      font-weight: 800;
+      background: var(--ink);
+      color: #fffaf1;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(32, 24, 22, .14);
+    }
+
+    button.secondary {
+      background: #fffdf8;
+      color: var(--ink);
+      box-shadow: none;
+    }
+
+    button.ghost {
+      background: transparent;
+      color: var(--ink);
+      box-shadow: none;
+    }
+
+    button:disabled {
+      opacity: .48;
+      cursor: not-allowed;
+    }
+
+    .app {
+      width: min(1220px, calc(100vw - 24px));
+      margin: 0 auto;
+      padding: 18px 0 26px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 4.7rem);
+      line-height: .95;
+      letter-spacing: 0;
+    }
+
+    .subline {
+      margin: 8px 0 0;
+      color: var(--soft);
+    }
+
+    .userbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .userchip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      font-weight: 800;
+    }
+
+    .userchip img {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .home {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) 420px;
+      gap: 18px;
+      margin-top: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel.flat {
+      box-shadow: none;
+    }
+
+    .map {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(72px, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .level {
+      min-height: 96px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdf8;
+      display: grid;
+      align-content: space-between;
+      text-align: left;
+      color: var(--ink);
+    }
+
+    .level.locked {
+      background: rgba(255, 253, 248, .46);
+      color: rgba(32, 24, 22, .48);
+      box-shadow: none;
+    }
+
+    .level strong {
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    .stars {
+      color: var(--gold);
+      white-space: nowrap;
+      font-size: 1rem;
+      min-height: 22px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdf8;
+      padding: 10px;
+      min-width: 0;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--soft);
+      font-size: .78rem;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 1.35rem;
+      margin-top: 3px;
+    }
+
+    .roster {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .person {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 9px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdf8;
+      padding: 8px;
+      min-width: 0;
+    }
+
+    .person b,
+    .person small {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .person small { color: var(--soft); }
+
+    .game {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) 330px;
+      gap: 18px;
+      margin-top: 18px;
+      align-items: start;
+    }
+
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .board-wrap {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 252, 246, .78);
+      padding: clamp(10px, 2vw, 16px);
+      box-shadow: var(--shadow);
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(34px, 1fr));
+      gap: clamp(5px, 1vw, 9px);
+      aspect-ratio: 1 / 1;
+    }
+
+    .tile {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-width: 0;
+      min-height: 0;
+      border: 1px solid rgba(32, 24, 22, .12);
+      border-radius: 8px;
+      background: var(--tile);
+      padding: 0;
+      overflow: hidden;
+      box-shadow: inset 0 -3px 0 rgba(32, 24, 22, .07);
+      transition: transform .12s ease, box-shadow .12s ease, opacity .18s ease;
+    }
+
+    .tile:hover,
+    .tile:focus-visible {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 18px rgba(32, 24, 22, .16), inset 0 -3px 0 rgba(32, 24, 22, .07);
+      outline: none;
+    }
+
+    .tile.selected {
+      box-shadow: 0 0 0 3px var(--gold), 0 12px 22px rgba(32, 24, 22, .18);
+      transform: translateY(-2px) scale(1.02);
+    }
+
+    .tile.clearing {
+      opacity: .18;
+      transform: scale(.78) rotate(-4deg);
+    }
+
+    .tile.blocker::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(45deg, transparent 42%, rgba(32, 24, 22, .38) 44%, rgba(32, 24, 22, .38) 56%, transparent 58%),
+        linear-gradient(-45deg, transparent 42%, rgba(32, 24, 22, .28) 44%, rgba(32, 24, 22, .28) 56%, transparent 58%);
+      pointer-events: none;
+    }
+
+    .avatar {
+      width: 86%;
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 900;
+      text-align: center;
+      border: 3px solid rgba(255, 255, 255, .92);
+      background: var(--blue);
+      box-shadow: 0 6px 11px rgba(32, 24, 22, .15), inset 0 -12px 20px rgba(0, 0, 0, .13);
+      font-size: clamp(.6rem, 1.55vw, 1rem);
+      line-height: 1.05;
+    }
+
+    .person .avatar {
+      width: 44px;
+      border-width: 2px;
+      font-size: .72rem;
+    }
+
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .avatar img.is-missing { display: none; }
+    .avatar img.is-missing + span { display: grid; }
+    .avatar span {
+      display: none;
+      width: 100%;
+      height: 100%;
+      place-items: center;
+      padding: 4px;
+    }
+
+    .a0 { background: linear-gradient(145deg, #b52222, #e36a42); }
+    .a1 { background: linear-gradient(145deg, #22628a, #62a7c2); }
+    .a2 { background: linear-gradient(145deg, #19715b, #68a66e); }
+    .a3 { background: linear-gradient(145deg, #744d87, #bd73a0); }
+    .a4 { background: linear-gradient(145deg, #8a5b23, #d5a326); }
+    .a5 { background: linear-gradient(145deg, #4b5662, #9aaab0); }
+    .a6 { background: linear-gradient(145deg, #7d2b42, #cc6970); }
+
+    .side {
+      display: grid;
+      gap: 12px;
+    }
+
+    .goals {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .goal {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdf8;
+      padding: 9px 10px;
+      font-weight: 800;
+    }
+
+    .boosters {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .booster {
+      min-height: 68px;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 3px;
+      padding: 8px 6px;
+      background: #fffdf8;
+      color: var(--ink);
+      box-shadow: none;
+    }
+
+    .booster span { font-size: 1.35rem; line-height: 1; }
+    .booster small { color: var(--soft); font-weight: 800; }
+
+    .message {
+      min-height: 26px;
+      color: var(--red);
+      font-weight: 800;
+      margin-top: 10px;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(32, 24, 22, .36);
+      z-index: 20;
+    }
+
+    .modal.active { display: grid; }
+
+    .dialog {
+      width: min(430px, 100%);
+      border-radius: 8px;
+      border: 1px solid rgba(32, 24, 22, .18);
+      background: #fffaf1;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .dialog h2 { margin: 0 0 8px; }
+    .dialog p { color: var(--soft); }
+    .dialog-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 940px) {
+      .topbar,
+      .home,
+      .game { grid-template-columns: 1fr; }
+      .userbar { justify-content: flex-start; }
+      .map { grid-template-columns: repeat(4, minmax(68px, 1fr)); }
+    }
+
+    @media (max-width: 560px) {
+      .app { width: min(100vw - 14px, 1220px); }
+      .hud,
+      .meta-grid,
+      .roster { grid-template-columns: repeat(2, 1fr); }
+      .map { grid-template-columns: repeat(3, minmax(66px, 1fr)); }
+      .board { gap: 4px; }
+      .avatar { border-width: 2px; }
+      button { padding: 0 10px; }
+    }
+
+    /* Mobile-first game shell */
+    body { background: linear-gradient(180deg, #57c9ff 0, #b5efff 38%, #7bd66f 38%, #d7f39a 100%); }
+    button { border: 0; border-radius: 16px; background: linear-gradient(#ff9d32, #f36b22); box-shadow: 0 5px 0 #c94b19, 0 8px 18px rgba(63,53,45,.2); }
+    .app { width: min(100%, 560px); min-height: 100vh; padding: 0 0 86px; background: rgba(255,255,255,.18); overflow: hidden; }
+    .topbar { position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; padding: max(10px, env(safe-area-inset-top)) 14px 10px; border: 0; background: linear-gradient(180deg,#7046d5,#5632b7); color: white; box-shadow: 0 4px 18px rgba(48,24,110,.32); }
+    .brand h1 { font-size: 1.35rem; line-height: 1; text-shadow: 0 2px 0 #3b218d; }
+    .brand .subline { display:none; }
+    .userbar.auth { flex-wrap: nowrap; gap: 7px; }
+    .userbar.auth > button { min-height: 34px; padding: 0 10px; font-size: .76rem; border-radius: 12px; box-shadow: none; }
+    .userchip { min-height: 34px; padding: 4px 8px; border: 0; background: rgba(255,255,255,.18); color: white; font-size: .78rem; }
+    .sound-btn { width: 36px; padding: 0!important; font-size: 1rem!important; }
+    .home, .game { display: block; margin: 0; }
+    .home > .panel { padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+    .map-head { position: relative; z-index: 2; margin: 14px; padding: 14px; border-radius: 22px; color: white; background: linear-gradient(135deg,#ff6688,#ff934a); box-shadow: 0 7px 0 #d64d55; }
+    .map-head h2 { font-size: 1.15rem; }
+    .map-head button { background: #fff; color: #ee5b45; box-shadow: 0 4px 0 rgba(146,51,44,.25); }
+    .map { position: relative; display: flex; flex-direction: column; gap: 26px; min-height: 1100px; padding: 18px 18% 120px; background: radial-gradient(circle at 20% 8%,#fff7 0 28px,transparent 29px), linear-gradient(180deg,#80df78,#aee66f); }
+    .map::before { content:""; position:absolute; top:20px; bottom:50px; left:50%; width:14px; transform:translateX(-50%); border-radius:20px; background: repeating-linear-gradient(#fff 0 18px,#f5d79a 18px 35px); box-shadow:0 0 0 5px #fff8; }
+    .level { position:relative; z-index:1; width:76px; min-height:76px; display:grid; place-items:center; align-self:flex-start; padding:5px; border:5px solid #fff; border-radius:50%; color:white; text-align:center; background:linear-gradient(#ffd85a,#ff8c25); box-shadow:0 6px 0 #ce641c,0 8px 15px #386b5066; }
+    .level:nth-child(even) { align-self:flex-end; }
+    .level strong { font-size:1.55rem; }
+    .level > span:not(.stars) { display:none; }
+    .level .stars { position:absolute; top:72px; left:50%; transform:translateX(-50%); font-size:.7rem; color:#ffe33e; text-shadow:0 1px 2px #744; }
+    .level.locked { background:linear-gradient(#b8c2c9,#7f8d96); color:#eef2f4; }
+    .profile-panel { margin: -95px 12px 15px; position: relative; z-index:3; border-radius:24px; background:#fffaf0; }
+    .profile-panel .meta-grid { grid-template-columns:repeat(4,1fr); }
+    .profile-panel .stat { padding:8px 4px; text-align:center; }
+    .profile-panel .stat b { font-size:1.05rem; }
+    .roster { display:none; }
+    .game { padding: 10px; background: linear-gradient(180deg,#7bd8ff,#e6fbff); min-height: calc(100vh - 58px); }
+    .game > section { display:flex; flex-direction:column; }
+    .hud { order:0; grid-template-columns:1.2fr 1.5fr 1fr; gap:7px; margin-bottom:9px; }
+    .hud .stat { padding:7px 9px; border:3px solid #fff; border-radius:18px; background:linear-gradient(#7049d7,#5231b2); color:white; text-align:center; box-shadow:0 4px 0 #37217f; }
+    .hud .stat:nth-child(4){display:none}.hud .stat span{color:#e8ddff}.hud .stat b{font-size:1.12rem}
+    .board-wrap { order:2; padding:7px; border:4px solid #6940c4; border-radius:20px; background:#5330a5; box-shadow:0 7px 0 #352071,0 12px 25px #365b7780; }
+    .board { gap:3px; }
+    .tile { border-radius:12px; border:0; background:linear-gradient(#fff,#e9f4ff); box-shadow:inset 0 -3px 0 #c9d4e3; touch-action:none; }
+    .tile .avatar { width:92%; border:2px solid #fff; }
+    .message { color:#fff; margin:6px 5px 0; min-height:20px; font-size:.85rem; }
+    .side { order:1; display:block; }
+    .side .panel { border:0; background:transparent; padding:0; }
+    .side .panel:first-child { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .side .panel:first-child .userbar { min-width:74px; }
+    .side h2,.side #levelText { display:none; }
+    #backHome { width:44px; min-height:44px; padding:0; border-radius:50%; background:#fff; color:#6140be; box-shadow:0 4px 0 #b5c9d3; font-size:0; }
+    #backHome::after { content:"‹"; font-size:2rem; }
+    .goals { flex:1; display:flex; gap:6px; margin:0; }
+    .goal { flex:1; padding:8px; border:3px solid #fff; border-radius:16px; background:#fffb; font-size:.72rem; }
+    .side .panel:nth-child(2) { position:fixed; bottom:max(8px,env(safe-area-inset-bottom)); left:50%; z-index:12; width:min(calc(100% - 20px),540px); transform:translateX(-50%); padding:7px 12px; border-radius:22px; background:#fff; box-shadow:0 5px 20px #294b6666; }
+    .boosters { margin:0; }.booster{min-height:53px;border-radius:16px;background:linear-gradient(#fff,#e8edff);color:#4d35a0;box-shadow:0 3px 0 #b8bfdd}.booster span{font-size:1.15rem}.booster small{font-size:.68rem}
+    .side .panel:nth-child(3){display:none}
+    .modal { padding:16px; background:#30206099; backdrop-filter:blur(5px); }
+    .dialog { border:5px solid #fff; border-radius:28px; padding:24px; text-align:center; background:linear-gradient(#fff9e6,#fff); box-shadow:0 10px 0 #d7b9a0,0 20px 50px #30206088; }
+    .dialog h2 { font-size:2rem;color:#6b3dca }.dialog .stars{font-size:2.5rem}.dialog-actions{justify-content:center}.dialog-actions button{flex:1}
+    .reward-icon{font-size:4rem;filter:drop-shadow(0 5px 2px #c98b28)}
+    @media(min-width:700px){body{padding:20px}.app{border-radius:28px;box-shadow:0 25px 70px #20475b66}.topbar{position:relative}.side .panel:nth-child(2){position:absolute;bottom:18px}.game{position:relative;padding-bottom:95px}}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>共匪消消乐</h1>
+        <p class="subline">关卡推进、目标挑战、星级晋级、道具和账号存档。</p>
+      </div>
+      <div class="userbar auth">
+        <div class="userchip" id="userChip"><span>未登录</span></div>
+        <button id="soundToggle" class="sound-btn secondary" type="button" aria-label="切换音效">🔊</button>
+        <button id="googleLogin" type="button">Google 登录</button>
+        <button id="guestLogin" type="button" class="secondary">游客进入</button>
+      </div>
+    </header>
+
+    <section id="homeScreen" class="screen active">
+      <div class="home">
+        <section class="panel">
+          <div class="userbar map-head" style="justify-content:space-between">
+            <h2 style="margin:0">关卡地图</h2>
+            <button id="continueBtn" type="button">继续游戏</button>
+          </div>
+          <div id="levelMap" class="map" aria-label="关卡地图"></div>
+        </section>
+
+        <aside class="panel flat profile-panel">
+          <h2 style="margin:0">玩家档案</h2>
+          <div class="meta-grid">
+            <div class="stat"><span>最高关卡</span><b id="maxLevel">1</b></div>
+            <div class="stat"><span>总星数</span><b id="totalStars">0</b></div>
+            <div class="stat"><span>金币</span><b id="coins">0</b></div>
+            <div class="stat"><span>体力</span><b id="lives">5 / 5</b></div>
+          </div>
+          <h3>人物头像</h3>
+          <div id="roster" class="roster"></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="gameScreen" class="screen">
+      <div class="game">
+        <section>
+          <div class="hud">
+            <div class="stat"><span>关卡</span><b id="levelNo">1</b></div>
+            <div class="stat"><span>分数</span><b id="score">0</b></div>
+            <div class="stat"><span>步数</span><b id="moves">30</b></div>
+            <div class="stat"><span>连击</span><b id="combo">0</b></div>
+          </div>
+          <div class="board-wrap">
+            <div id="board" class="board" aria-label="消消乐棋盘"></div>
+            <div id="message" class="message" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <aside class="side">
+          <section class="panel flat">
+            <div class="userbar" style="justify-content:space-between">
+              <h2 style="margin:0">目标</h2>
+              <button id="backHome" type="button" class="secondary">地图</button>
+            </div>
+            <div id="goals" class="goals"></div>
+          </section>
+
+          <section class="panel flat">
+            <h2 style="margin:0">道具</h2>
+            <div class="boosters">
+              <button class="booster" id="hammer" type="button"><span>✦</span><small>锤子</small></button>
+              <button class="booster" id="shuffle" type="button"><span>↻</span><small>重排</small></button>
+              <button class="booster" id="extraMoves" type="button"><span>+5</span><small>步数</small></button>
+            </div>
+          </section>
+
+          <section class="panel flat">
+            <h2 style="margin:0">本关规则</h2>
+            <p id="levelText" class="subline"></p>
+          </section>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <div id="resultModal" class="modal" role="dialog" aria-modal="true">
+    <div class="dialog">
+      <h2 id="resultTitle">过关</h2>
+      <p id="resultText"></p>
+      <div class="stars" id="resultStars"></div>
+      <div class="dialog-actions">
+        <button id="retryLevel" type="button" class="secondary">重玩</button>
+        <button id="nextLevel" type="button">下一关</button>
+        <button id="modalMap" type="button" class="ghost">返回地图</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dailyModal" class="modal" role="dialog" aria-modal="true">
+    <div class="dialog">
+      <div class="reward-icon">🎁</div>
+      <h2>每日登录奖励</h2>
+      <p>连续登录可获得更多奖励。今天送你 50 金币和 1 个锤子！</p>
+      <button id="claimDaily" type="button">开心收下</button>
+    </div>
+  </div>
+
+  <script>
+    const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
+    const size = 8;
+    const saveKey = "cpc-match3-save-v2";
+
+    const people = [
+      { name: "习近平", title: "中共中央总书记", image: "https://commons.wikimedia.org/wiki/Special:FilePath/Xi_Jinping_2019.jpg" },
+      { name: "李强", title: "中共中央政治局常委", image: "https://commons.wikimedia.org/wiki/Special:FilePath/Chinese_Premier_Li_Qiang_in_Press_Conference_2023.jpg" },
+      { name: "赵乐际", title: "中共中央政治局常委", image: "https://commons.wikimedia.org/wiki/Special:FilePath/Zhao_in_2023.jpg" },
+      { name: "王沪宁", title: "中共中央政治局常委", image: "https://commons.wikimedia.org/wiki/Special:FilePath/%E7%8E%8B%E6%B2%AA%E5%AE%81_Wang_Huning_20221023.jpg" },
+      { name: "蔡奇", title: "中共中央政治局常委", image: "https://commons.wikimedia.org/wiki/Special:FilePath/%E8%94%A1%E5%A5%87_Cai_Qi_20221023.jpg" },
+      { name: "丁薛祥", title: "中共中央政治局常委", image: "https://commons.wikimedia.org/wiki/Special:FilePath/Ding_Xuexiang_2023.jpg" },
+      { name: "李希", title: "中共中央政治局常委", image: "https://commons.wikimedia.org/wiki/Special:FilePath/Li_Xi_(cropped)_(2025)_01.jpg" }
+    ];
+
+    const levels = Array.from({ length: 30 }, (_, i) => {
+      const n = i + 1;
+      const collectId = i % people.length;
+      const blockerEvery = n > 5 ? Math.max(9, 16 - Math.floor(n / 3)) : 0;
+      return {
+        id: n,
+        moves: Math.max(18, 32 - Math.floor(n / 2)),
+        targetScore: 900 + n * 260,
+        collectId,
+        collectCount: 6 + Math.floor(n * 1.4),
+        blockerCount: n > 5 ? Math.min(18, 2 + Math.floor(n / 2)) : 0,
+        blockerEvery,
+        unlockText: n <= 5 ? "基础收集目标" : n <= 15 ? "加入障碍格与更高分数线" : "高压力步数与组合目标",
+        starScores: [900 + n * 260, 1300 + n * 340, 1800 + n * 430]
+      };
+    });
+
+    let state = loadSave();
+    let grid = [];
+    let blockers = new Set();
+    let selected = null;
+    let busy = false;
+    let activeLevel = levels[0];
+    let score = 0;
+    let moves = 0;
+    let combo = 0;
+    let collected = {};
+    let hammerMode = false;
+    let audioOn = true;
+    let audioContext = null;
+    let touchStart = null;
+    let lastVoiceAt = 0;
+
+    const el = {
+      home: document.querySelector("#homeScreen"),
+      game: document.querySelector("#gameScreen"),
+      board: document.querySelector("#board"),
+      map: document.querySelector("#levelMap"),
+      roster: document.querySelector("#roster"),
+      userChip: document.querySelector("#userChip"),
+      maxLevel: document.querySelector("#maxLevel"),
+      totalStars: document.querySelector("#totalStars"),
+      coins: document.querySelector("#coins"),
+      lives: document.querySelector("#lives"),
+      levelNo: document.querySelector("#levelNo"),
+      score: document.querySelector("#score"),
+      moves: document.querySelector("#moves"),
+      combo: document.querySelector("#combo"),
+      goals: document.querySelector("#goals"),
+      message: document.querySelector("#message"),
+      levelText: document.querySelector("#levelText"),
+      modal: document.querySelector("#resultModal"),
+      resultTitle: document.querySelector("#resultTitle"),
+      resultText: document.querySelector("#resultText"),
+      resultStars: document.querySelector("#resultStars"),
+      nextLevel: document.querySelector("#nextLevel")
+    };
+
+    function defaultSave() {
+      return {
+        user: null,
+        guest: false,
+        maxUnlocked: 1,
+        stars: {},
+        coins: 120,
+        lives: 5,
+        lastDaily: "",
+        boosters: { hammer: 3, shuffle: 3, extraMoves: 2 }
+      };
+    }
+
+    function loadSave() {
+      try {
+        return { ...defaultSave(), ...JSON.parse(localStorage.getItem(saveKey) || "{}") };
+      } catch {
+        return defaultSave();
+      }
+    }
+
+    function save() {
+      localStorage.setItem(saveKey, JSON.stringify(state));
+      renderShell();
+    }
+
+    function initials(name) {
+      return name.length > 2 ? name.slice(-2) : name;
+    }
+
+    function avatar(index) {
+      const p = people[index];
+      return `<div class="avatar a${index}">
+        <img src="${p.image}" alt="${p.name}头像" loading="lazy" onerror="this.classList.add('is-missing')">
+        <span>${initials(p.name)}</span>
+      </div>`;
+    }
+
+    function randomPiece() {
+      return Math.floor(Math.random() * people.length);
+    }
+
+    function show(screen) {
+      el.home.classList.toggle("active", screen === "home");
+      el.game.classList.toggle("active", screen === "game");
+    }
+
+    function renderShell() {
+      if (state.user) {
+        el.userChip.innerHTML = `${state.user.picture ? `<img src="${state.user.picture}" alt="">` : ""}<span>${state.user.name}</span>`;
+      } else if (state.guest) {
+        el.userChip.innerHTML = "<span>游客玩家</span>";
+      } else {
+        el.userChip.innerHTML = "<span>未登录</span>";
+      }
+      const starTotal = Object.values(state.stars).reduce((sum, value) => sum + value, 0);
+      el.maxLevel.textContent = state.maxUnlocked;
+      el.totalStars.textContent = starTotal;
+      el.coins.textContent = state.coins;
+      el.lives.textContent = `${state.lives} / 5`;
+      renderMap();
+      renderRoster();
+    }
+
+    function renderRoster() {
+      el.roster.innerHTML = people.map((p, i) => `
+        <div class="person">
+          ${avatar(i)}
+          <div><b>${p.name}</b><small>${p.title}</small></div>
+        </div>
+      `).join("");
+    }
+
+    function renderMap() {
+      el.map.innerHTML = levels.map(level => {
+        const unlocked = level.id <= state.maxUnlocked;
+        const stars = state.stars[level.id] || 0;
+        const starText = "★".repeat(stars) + "☆".repeat(3 - stars);
+        return `<button type="button" class="level ${unlocked ? "" : "locked"}" data-level="${level.id}" ${unlocked ? "" : "disabled"}>
+          <strong>${level.id}</strong>
+          <span>${unlocked ? level.unlockText : "未解锁"}</span>
+          <span class="stars">${starText}</span>
+        </button>`;
+      }).join("");
+      el.map.querySelectorAll(".level:not(.locked)").forEach(btn => {
+        btn.addEventListener("click", () => startLevel(Number(btn.dataset.level)));
+      });
+    }
+
+    function createBoard(level) {
+      grid = Array.from({ length: size }, () => Array(size).fill(0));
+      blockers = new Set();
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          let value = randomPiece();
+          while ((c >= 2 && grid[r][c - 1] === value && grid[r][c - 2] === value) ||
+                 (r >= 2 && grid[r - 1][c] === value && grid[r - 2][c] === value)) {
+            value = randomPiece();
+          }
+          grid[r][c] = value;
+        }
+      }
+      if (level.blockerCount) {
+        const cells = [];
+        for (let r = 1; r < size - 1; r++) {
+          for (let c = 1; c < size - 1; c++) cells.push(`${r},${c}`);
+        }
+        shuffleArray(cells);
+        cells.slice(0, level.blockerCount).forEach(key => blockers.add(key));
+      }
+    }
+
+    function startLevel(id) {
+      if (state.lives <= 0) {
+        alert("体力不足，稍后再来吧。完成每日签到可以获得补给！");
+        return;
+      }
+      playSound("tap");
+      activeLevel = levels[id - 1] || levels[0];
+      score = 0;
+      moves = activeLevel.moves;
+      combo = 0;
+      collected = {};
+      selected = null;
+      busy = false;
+      hammerMode = false;
+      el.message.textContent = "";
+      createBoard(activeLevel);
+      ensurePlayable();
+      show("game");
+      renderGame();
+    }
+
+    function renderGame(clearing = new Set()) {
+      el.levelNo.textContent = activeLevel.id;
+      el.score.textContent = score;
+      el.moves.textContent = moves;
+      el.combo.textContent = combo;
+      el.levelText.textContent = activeLevel.unlockText;
+      renderGoals();
+      el.board.innerHTML = "";
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          const piece = grid[r][c];
+          const key = `${r},${c}`;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "tile";
+          if (selected && selected.r === r && selected.c === c) btn.classList.add("selected");
+          if (clearing.has(key)) btn.classList.add("clearing");
+          if (blockers.has(key)) btn.classList.add("blocker");
+          btn.setAttribute("aria-label", `${people[piece].name}，第 ${r + 1} 行第 ${c + 1} 列`);
+          btn.innerHTML = avatar(piece);
+          btn.addEventListener("click", () => chooseTile(r, c));
+          btn.addEventListener("pointerdown", event => {
+            touchStart = { r, c, x: event.clientX, y: event.clientY };
+          });
+          btn.addEventListener("pointerup", event => {
+            if (!touchStart || touchStart.r !== r || touchStart.c !== c || busy) return;
+            const dx = event.clientX - touchStart.x;
+            const dy = event.clientY - touchStart.y;
+            touchStart = null;
+            if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
+            const target = Math.abs(dx) > Math.abs(dy)
+              ? { r, c: c + (dx > 0 ? 1 : -1) }
+              : { r: r + (dy > 0 ? 1 : -1), c };
+            if (target.r >= 0 && target.r < size && target.c >= 0 && target.c < size) {
+              selected = null;
+              playerSwap({ r, c }, target);
+            }
+          });
+          el.board.appendChild(btn);
+        }
+      }
+      document.querySelector("#hammer small").textContent = `锤子 x${state.boosters.hammer}`;
+      document.querySelector("#shuffle small").textContent = `重排 x${state.boosters.shuffle}`;
+      document.querySelector("#extraMoves small").textContent = `步数 x${state.boosters.extraMoves}`;
+    }
+
+    function renderGoals() {
+      const collectNow = collected[activeLevel.collectId] || 0;
+      const blockersLeft = blockers.size;
+      const goals = [
+        ["分数", `${Math.min(score, activeLevel.targetScore)} / ${activeLevel.targetScore}`],
+        [`收集 ${people[activeLevel.collectId].name}`, `${Math.min(collectNow, activeLevel.collectCount)} / ${activeLevel.collectCount}`]
+      ];
+      if (activeLevel.blockerCount) goals.push(["清除障碍", `${activeLevel.blockerCount - blockersLeft} / ${activeLevel.blockerCount}`]);
+      el.goals.innerHTML = goals.map(([name, value]) => `<div class="goal"><span>${name}</span><span>${value}</span></div>`).join("");
+    }
+
+    function chooseTile(r, c) {
+      if (busy || moves <= 0) return;
+      const key = `${r},${c}`;
+      if (hammerMode) {
+        useHammer(r, c);
+        return;
+      }
+      if (blockers.has(key)) {
+        el.message.textContent = "障碍格需要通过相邻消除或锤子清除。";
+        return;
+      }
+      const current = { r, c };
+      if (!selected) {
+        selected = current;
+        renderGame();
+        return;
+      }
+      if (selected.r === r && selected.c === c) {
+        selected = null;
+        renderGame();
+        return;
+      }
+      if (!adjacent(selected, current)) {
+        selected = current;
+        renderGame();
+        return;
+      }
+      playerSwap(selected, current);
+    }
+
+    async function playerSwap(a, b) {
+      busy = true;
+      el.message.textContent = "";
+      swap(a, b);
+      let matches = findMatches();
+      if (!matches.size) {
+        swap(a, b);
+        selected = null;
+        busy = false;
+        el.message.textContent = "这一步没有形成消除。";
+        playSound("error");
+        renderGame();
+        return;
+      }
+      moves--;
+      playSound("swap");
+      selected = null;
+      await resolveMatches(0);
+      busy = false;
+      checkEnd();
+      renderGame();
+    }
+
+    function adjacent(a, b) {
+      return Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
+    }
+
+    function swap(a, b) {
+      const t = grid[a.r][a.c];
+      grid[a.r][a.c] = grid[b.r][b.c];
+      grid[b.r][b.c] = t;
+    }
+
+    function findMatches() {
+      const matches = new Set();
+      for (let r = 0; r < size; r++) {
+        let run = 1;
+        for (let c = 1; c <= size; c++) {
+          if (c < size && grid[r][c] === grid[r][c - 1] && !blockers.has(`${r},${c}`) && !blockers.has(`${r},${c - 1}`)) {
+            run++;
+          } else {
+            if (run >= 3) for (let i = 0; i < run; i++) matches.add(`${r},${c - 1 - i}`);
+            run = 1;
+          }
+        }
+      }
+      for (let c = 0; c < size; c++) {
+        let run = 1;
+        for (let r = 1; r <= size; r++) {
+          if (r < size && grid[r][c] === grid[r - 1][c] && !blockers.has(`${r},${c}`) && !blockers.has(`${r - 1},${c}`)) {
+            run++;
+          } else {
+            if (run >= 3) for (let i = 0; i < run; i++) matches.add(`${r - 1 - i},${c}`);
+            run = 1;
+          }
+        }
+      }
+      return matches;
+    }
+
+    async function resolveMatches(startCombo) {
+      let matches = findMatches();
+      let localCombo = startCombo;
+      while (matches.size) {
+        localCombo++;
+        combo = localCombo;
+        for (const key of Array.from(matches)) clearAdjacentBlockers(key);
+        for (const key of matches) {
+          const [r, c] = key.split(",").map(Number);
+          const piece = grid[r][c];
+          collected[piece] = (collected[piece] || 0) + 1;
+        }
+        score += matches.size * 10 * localCombo + Math.max(0, matches.size - 3) * 20;
+        playSound(localCombo > 1 ? "combo" : "match", localCombo);
+        if (localCombo >= 2 && Math.random() < .42) speakPraise(localCombo >= 3 ? "完美" : "真棒");
+        renderGame(matches);
+        await wait(220);
+        for (const key of matches) {
+          const [r, c] = key.split(",").map(Number);
+          grid[r][c] = null;
+        }
+        collapse();
+        fill();
+        renderGame();
+        await wait(160);
+        matches = findMatches();
+      }
+      ensurePlayable();
+    }
+
+    function clearAdjacentBlockers(key) {
+      const [r, c] = key.split(",").map(Number);
+      [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].forEach(([rr, cc]) => blockers.delete(`${rr},${cc}`));
+    }
+
+    function collapse() {
+      for (let c = 0; c < size; c++) {
+        const kept = [];
+        for (let r = size - 1; r >= 0; r--) {
+          if (grid[r][c] !== null) kept.push(grid[r][c]);
+        }
+        for (let r = size - 1; r >= 0; r--) grid[r][c] = kept[size - 1 - r] ?? null;
+      }
+    }
+
+    function fill() {
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          if (grid[r][c] === null) grid[r][c] = randomPiece();
+        }
+      }
+    }
+
+    function goalsMet() {
+      const collectDone = (collected[activeLevel.collectId] || 0) >= activeLevel.collectCount;
+      const blockerDone = !activeLevel.blockerCount || blockers.size === 0;
+      return score >= activeLevel.targetScore && collectDone && blockerDone;
+    }
+
+    function starsEarned() {
+      let stars = 0;
+      activeLevel.starScores.forEach(target => { if (score >= target) stars++; });
+      if (goalsMet()) stars = Math.max(1, stars);
+      return stars;
+    }
+
+    function checkEnd() {
+      if (goalsMet()) return finishLevel(true);
+      if (moves <= 0) return finishLevel(false);
+    }
+
+    function finishLevel(won) {
+      busy = true;
+      const earned = won ? starsEarned() : 0;
+      if (won) {
+        state.stars[activeLevel.id] = Math.max(state.stars[activeLevel.id] || 0, earned);
+        state.maxUnlocked = Math.max(state.maxUnlocked, Math.min(levels.length, activeLevel.id + 1));
+        state.coins += 20 + earned * 10;
+        save();
+        playSound("win");
+        speakPraise("恭喜，灭共成功", true);
+      } else {
+        state.lives = Math.max(0, state.lives - 1);
+        save();
+        playSound("lose");
+      }
+      el.resultTitle.textContent = won ? "恭喜，灭共成功" : "挑战失败";
+      el.resultText.textContent = won ? `得分 ${score}，获得 ${earned} 星，下一关已解锁。` : `得分 ${score}，目标还没有全部完成。`;
+      el.resultStars.textContent = won ? "★".repeat(earned) + "☆".repeat(3 - earned) : "☆☆☆";
+      el.nextLevel.disabled = !won || activeLevel.id >= levels.length;
+      el.modal.classList.add("active");
+    }
+
+    function useHammer(r, c) {
+      if (state.boosters.hammer <= 0) return;
+      state.boosters.hammer--;
+      state.coins = Math.max(0, state.coins - 5);
+      blockers.delete(`${r},${c}`);
+      collected[grid[r][c]] = (collected[grid[r][c]] || 0) + 1;
+      grid[r][c] = randomPiece();
+      hammerMode = false;
+      save();
+      renderGame();
+      checkEnd();
+    }
+
+    function useShuffle() {
+      if (busy || state.boosters.shuffle <= 0) return;
+      state.boosters.shuffle--;
+      state.coins = Math.max(0, state.coins - 8);
+      const pieces = [];
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) pieces.push(grid[r][c]);
+      shuffleArray(pieces);
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) grid[r][c] = pieces.pop();
+      save();
+      ensurePlayable();
+      renderGame();
+    }
+
+    function useExtraMoves() {
+      if (busy || state.boosters.extraMoves <= 0) return;
+      state.boosters.extraMoves--;
+      moves += 5;
+      state.coins = Math.max(0, state.coins - 10);
+      save();
+      renderGame();
+    }
+
+    function hasMove() {
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          if (blockers.has(`${r},${c}`)) continue;
+          const here = { r, c };
+          const neighbors = [{ r: r + 1, c }, { r, c: c + 1 }];
+          for (const next of neighbors) {
+            if (next.r >= size || next.c >= size || blockers.has(`${next.r},${next.c}`)) continue;
+            swap(here, next);
+            const ok = findMatches().size > 0;
+            swap(here, next);
+            if (ok) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function ensurePlayable() {
+      let attempts = 0;
+      while (!hasMove() && attempts < 8) {
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) if (!blockers.has(`${r},${c}`)) grid[r][c] = randomPiece();
+        }
+        attempts++;
+      }
+    }
+
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function playSound(type, level = 1) {
+      if (!audioOn) return;
+      try {
+        audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioContext.currentTime;
+        const melodies = {
+          tap: [[660, 0, .055]],
+          swap: [[523, 0, .07], [659, .055, .08]],
+          match: [[784, 0, .09], [988, .07, .12]],
+          combo: [[659, 0, .08], [784, .065, .08], [988 + Math.min(level, 4) * 28, .13, .15]],
+          error: [[294, 0, .1], [247, .08, .13]],
+          win: [[523, 0, .13], [659, .1, .13], [784, .2, .13], [1047, .3, .34]],
+          lose: [[392, 0, .13], [330, .1, .15], [262, .2, .25]]
+        };
+        (melodies[type] || melodies.tap).forEach(([frequency, delay, duration], index) => {
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          const start = now + delay;
+          oscillator.type = type === "lose" || type === "error" ? "triangle" : index % 2 ? "sine" : "triangle";
+          oscillator.frequency.setValueAtTime(frequency, start);
+          oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.025, start + duration * .45);
+          gain.gain.setValueAtTime(.001, start);
+          gain.gain.exponentialRampToValueAtTime(type === "win" ? .105 : .075, start + .012);
+          gain.gain.exponentialRampToValueAtTime(.001, start + duration);
+          oscillator.connect(gain).connect(audioContext.destination);
+          oscillator.start(start);
+          oscillator.stop(start + duration + .02);
+        });
+        if (navigator.vibrate && ["match", "combo", "win"].includes(type)) navigator.vibrate(type === "win" ? [35, 40, 60] : 18);
+      } catch {}
+    }
+
+    function speakPraise(text, force = false) {
+      if (!audioOn || !window.speechSynthesis) return;
+      const now = Date.now();
+      if (!force && now - lastVoiceAt < 3500) return;
+      lastVoiceAt = now;
+      if (force) speechSynthesis.cancel();
+      const voice = new SpeechSynthesisUtterance(text);
+      voice.lang = "zh-CN";
+      voice.rate = 1.12;
+      voice.pitch = 1.55;
+      voice.volume = .82;
+      speechSynthesis.speak(voice);
+    }
+
+    function setupDailyReward() {
+      const today = new Date().toLocaleDateString("en-CA");
+      if (state.lastDaily !== today) document.querySelector("#dailyModal").classList.add("active");
+      document.querySelector("#claimDaily").addEventListener("click", () => {
+        if (state.lastDaily !== today) {
+          state.lastDaily = today;
+          state.coins += 50;
+          state.boosters.hammer++;
+          state.lives = Math.min(5, state.lives + 1);
+          save();
+        }
+        document.querySelector("#dailyModal").classList.remove("active");
+        playSound("win");
+      });
+    }
+
+    function setupGoogle() {
+      document.querySelector("#googleLogin").addEventListener("click", () => {
+        if (GOOGLE_CLIENT_ID.startsWith("YOUR_")) {
+          alert("要启用真实 Google 登录，请先在代码里把 GOOGLE_CLIENT_ID 替换成你的 OAuth Client ID。");
+          return;
+        }
+        google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: response => {
+            const payload = JSON.parse(atob(response.credential.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+            state.user = { name: payload.name, email: payload.email, picture: payload.picture };
+            state.guest = false;
+            save();
+          }
+        });
+        google.accounts.id.prompt();
+      });
+    }
+
+    document.querySelector("#guestLogin").addEventListener("click", () => {
+      state.guest = true;
+      state.user = null;
+      save();
+    });
+    document.querySelector("#soundToggle").addEventListener("click", event => {
+      audioOn = !audioOn;
+      if (!audioOn && window.speechSynthesis) speechSynthesis.cancel();
+      event.currentTarget.textContent = audioOn ? "🔊" : "🔇";
+      if (audioOn) playSound("tap");
+    });
+    document.querySelector("#continueBtn").addEventListener("click", () => startLevel(state.maxUnlocked));
+    document.querySelector("#backHome").addEventListener("click", () => { show("home"); renderShell(); });
+    document.querySelector("#hammer").addEventListener("click", () => {
+      if (state.boosters.hammer <= 0) return;
+      hammerMode = !hammerMode;
+      el.message.textContent = hammerMode ? "选择一个格子使用锤子。" : "";
+    });
+    document.querySelector("#shuffle").addEventListener("click", useShuffle);
+    document.querySelector("#extraMoves").addEventListener("click", useExtraMoves);
+    document.querySelector("#retryLevel").addEventListener("click", () => {
+      el.modal.classList.remove("active");
+      startLevel(activeLevel.id);
+    });
+    document.querySelector("#nextLevel").addEventListener("click", () => {
+      el.modal.classList.remove("active");
+      startLevel(Math.min(levels.length, activeLevel.id + 1));
+    });
+    document.querySelector("#modalMap").addEventListener("click", () => {
+      el.modal.classList.remove("active");
+      show("home");
+      busy = false;
+      renderShell();
+    });
+
+    setupGoogle();
+    renderShell();
+    setupDailyReward();
+  </script>
+</body>
+</html>
