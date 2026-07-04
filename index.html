@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>共匪消消乐</title>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
       --bg: #f6efe2;
@@ -1171,6 +1172,45 @@
       }
     };
 
+    function getTelegramWebAppUser() {
+      const webApp = window.Telegram?.WebApp;
+      return webApp?.initDataUnsafe?.user || null;
+    }
+
+    function telegramUserToPlayer(tgUser) {
+      const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ").trim();
+      return {
+        uid: `telegram:${tgUser.id}`,
+        provider: "telegram",
+        name: fullName || tgUser.username || `Telegram ${tgUser.id}`,
+        email: tgUser.username ? `@${tgUser.username}` : `Telegram ID ${tgUser.id}`,
+        picture: tgUser.photo_url || ""
+      };
+    }
+
+    function setTelegramUser(tgUser) {
+      if (!tgUser?.id) return false;
+      state.user = telegramUserToPlayer(tgUser);
+      state.guest = false;
+      if (!state.registeredAt) state.registeredAt = new Date().toISOString();
+      localStorage.setItem(saveKey, JSON.stringify(state));
+      renderShell();
+      return true;
+    }
+
+    function setupTelegramLogin() {
+      const webApp = window.Telegram?.WebApp;
+      if (!webApp) return;
+      try {
+        webApp.ready?.();
+        webApp.expand?.();
+      } catch {}
+      const tgUser = getTelegramWebAppUser();
+      if (tgUser && (!state.user || state.user.provider !== "telegram")) {
+        setTelegramUser(tgUser);
+      }
+    }
+
     function initials(name) {
       return name;
     }
@@ -1201,8 +1241,9 @@
         el.googleLogin.title = state.user.name || "玩家";
       } else {
         el.googleLogin.disabled = firebaseCloudLoading;
-        el.googleLogin.textContent = "Google 登录";
-        el.googleLogin.setAttribute("aria-label", "Google 登录");
+        const hasTelegram = Boolean(getTelegramWebAppUser()?.id);
+        el.googleLogin.textContent = hasTelegram ? "Telegram 登录" : "Google 登录";
+        el.googleLogin.setAttribute("aria-label", hasTelegram ? "Telegram 登录" : "Google 登录");
         el.googleLogin.removeAttribute("title");
       }
       el.userChip.classList.toggle("is-user", Boolean(state.user));
@@ -1697,6 +1738,8 @@
         openProfile();
         return;
       }
+      const tgUser = getTelegramWebAppUser();
+      if (tgUser?.id && setTelegramUser(tgUser)) return;
       const cloud = await waitForFirebaseCloud();
       if (!cloud) {
         alert("Google 登录服务还没有加载成功，请刷新页面后再试。");
@@ -1761,6 +1804,7 @@
       renderShell();
     });
 
+    setupTelegramLogin();
     setupFirebaseGoogle();
     renderShell();
     setupDailyReward();
