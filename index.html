@@ -137,6 +137,115 @@
       align-items: start;
     }
 
+    .home.hero-home {
+      grid-template-columns: minmax(280px, 680px);
+      justify-content: center;
+    }
+
+    .home.hero-home > .panel:not(.leaderboard-panel),
+    .home.hero-home > .profile-panel,
+    .home.hero-home > .telegram-card {
+      display: none;
+    }
+
+    .leaderboard-panel {
+      display: grid;
+      gap: 14px;
+      text-align: center;
+    }
+
+    .leaderboard-title {
+      margin: 0;
+      font-size: clamp(2rem, 8vw, 3.6rem);
+      line-height: 1;
+      color: #5d3415;
+      text-shadow: 0 3px #fff3b7, 0 7px rgba(82,45,13,.18);
+    }
+
+    .leaderboard-subtitle {
+      margin: 0;
+      color: #4b6c28;
+      font-weight: 900;
+    }
+
+    .leaderboard {
+      display: grid;
+      gap: 8px;
+      margin: 6px 0 4px;
+    }
+
+    .leader-row {
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 3px solid var(--outline, rgba(32,24,22,.9));
+      border-radius: 14px;
+      background: linear-gradient(#fffde2,#f4edbd);
+      box-shadow: 0 4px 0 #7e704a;
+      text-align: left;
+    }
+
+    .leader-rank {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #e27b22;
+      color: white;
+      font-weight: 1000;
+      box-shadow: inset 0 -3px rgba(82,45,13,.28);
+    }
+
+    .leader-row:nth-child(1) .leader-rank { background: #f2b51d; }
+    .leader-row:nth-child(2) .leader-rank { background: #9ea9b5; }
+    .leader-row:nth-child(3) .leader-rank { background: #bf6b2a; }
+
+    .leader-name {
+      display: block;
+      font-weight: 1000;
+      color: #24331d;
+    }
+
+    .leader-meta {
+      display: block;
+      color: #68804c;
+      font-size: .78rem;
+      font-weight: 800;
+    }
+
+    .leader-score {
+      color: #e07822;
+      font-size: 1.05rem;
+      font-weight: 1000;
+      white-space: nowrap;
+    }
+
+    .leader-row.is-current {
+      background: linear-gradient(#fff7b7,#ffe88b);
+      box-shadow: 0 4px 0 #a47a21, 0 0 0 3px rgba(255,226,61,.55);
+    }
+
+    .start-game-hero {
+      min-height: 58px;
+      border: 4px solid var(--outline, rgba(32,24,22,.9));
+      border-radius: 18px;
+      background: linear-gradient(#43c3ff,#1998ec);
+      color: white;
+      font-size: 1.35rem;
+      text-shadow: 0 2px #116eaa;
+      box-shadow: 0 7px 0 #0875ba;
+    }
+
+    .home-note {
+      margin: 0;
+      color: #4d6e2d;
+      font-size: .85rem;
+      font-weight: 800;
+    }
+
     .panel {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -944,7 +1053,14 @@
     </header>
 
     <section id="homeScreen" class="screen active">
-      <div class="home">
+      <div class="home hero-home">
+        <section class="panel leaderboard-panel">
+          <h2 class="leaderboard-title">🏆 灭共英雄榜</h2>
+          <p class="leaderboard-subtitle">今日前十名 · 闯关越高，排名越靠前</p>
+          <div id="heroLeaderboard" class="leaderboard" aria-label="灭共英雄榜前十名"></div>
+          <button id="startGameBtn" class="start-game-hero" type="button">开始游戏</button>
+          <p class="home-note">游客可试玩第一关；登录 Telegram 后记录关卡、积分和奖励。</p>
+        </section>
         <section class="panel">
           <div class="userbar map-head" style="justify-content:space-between">
             <h2 style="margin:0">关卡地图</h2>
@@ -1135,7 +1251,9 @@
       nextLevel: document.querySelector("#nextLevel"),
       googleLogin: document.querySelector("#googleLogin"),
       telegramStatus: document.querySelector("#telegramStatus"),
-      telegramOpen: document.querySelector("#telegramOpen")
+      telegramOpen: document.querySelector("#telegramOpen"),
+      heroLeaderboard: document.querySelector("#heroLeaderboard"),
+      startGameBtn: document.querySelector("#startGameBtn")
     };
     let firebaseCloudLoading = false;
 
@@ -1302,8 +1420,56 @@
       el.coins.textContent = state.coins;
       el.lives.textContent = `${state.lives} / 5`;
       renderTelegramEntry();
+      renderHeroLeaderboard();
       renderMap();
       renderRoster();
+    }
+
+    function playerDisplayName() {
+      if (state.user?.name) return state.user.name;
+      if (state.guest) return "游客玩家";
+      return "等待上榜";
+    }
+
+    function leaderboardRows() {
+      const currentStars = Object.values(state.stars).reduce((sum, value) => sum + value, 0);
+      const current = {
+        name: playerDisplayName(),
+        level: state.maxUnlocked || 1,
+        score: state.points || 0,
+        stars: currentStars,
+        isCurrent: true
+      };
+      const demo = [
+        { name: "匿名英雄", level: 2, score: 1800, stars: 3 },
+        { name: "自由玩家", level: 1, score: 900, stars: 2 },
+        { name: "今日挑战者", level: 1, score: 600, stars: 1 },
+        { name: "虚位以待", level: 1, score: 0, stars: 0 },
+        { name: "虚位以待", level: 1, score: 0, stars: 0 },
+        { name: "虚位以待", level: 1, score: 0, stars: 0 },
+        { name: "虚位以待", level: 1, score: 0, stars: 0 },
+        { name: "虚位以待", level: 1, score: 0, stars: 0 },
+        { name: "虚位以待", level: 1, score: 0, stars: 0 },
+        { name: "虚位以待", level: 1, score: 0, stars: 0 }
+      ];
+      return [current, ...demo]
+        .sort((a, b) => (b.level - a.level) || (b.score - a.score) || (b.stars - a.stars))
+        .slice(0, 10);
+    }
+
+    function renderHeroLeaderboard() {
+      if (!el.heroLeaderboard) return;
+      const rows = leaderboardRows();
+      el.heroLeaderboard.innerHTML = rows.map((item, index) => `
+        <div class="leader-row${item.isCurrent ? " is-current" : ""}">
+          <span class="leader-rank">${index + 1}</span>
+          <span>
+            <span class="leader-name">${item.isCurrent ? "你 · " : ""}${item.name}</span>
+            <span class="leader-meta">最高第 ${item.level} 关 · ${item.stars} 星</span>
+          </span>
+          <span class="leader-score">${Number(item.score || 0).toLocaleString("zh-CN")} 分</span>
+        </div>
+      `).join("");
     }
 
     function renderTelegramEntry() {
@@ -1837,6 +2003,7 @@
       event.currentTarget.textContent = audioOn ? "🔊" : "🔇";
       if (audioOn) playSound("tap");
     });
+    el.startGameBtn?.addEventListener("click", () => startLevel(1));
     document.querySelector("#continueBtn").addEventListener("click", () => startLevel(state.maxUnlocked));
     document.querySelector("#backHome").addEventListener("click", () => { show("home"); renderShell(); });
     document.querySelector("#hammer").addEventListener("click", useHammer);
