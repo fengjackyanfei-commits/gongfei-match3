@@ -1785,7 +1785,12 @@
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
     let saveTimer;
-    await setPersistence(auth, browserLocalPersistence);
+    const persistenceReady = Promise.race([
+      setPersistence(auth, browserLocalPersistence).catch(error => {
+        console.warn("Firebase auth persistence fallback", error);
+      }),
+      new Promise(resolve => setTimeout(resolve, 1500))
+    ]);
 
     function prefersRedirectLogin() {
       return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
@@ -1793,6 +1798,7 @@
     }
 
     async function signInGoogle() {
+      await persistenceReady;
       if (prefersRedirectLogin()) {
         sessionStorage.setItem("googleLoginPending", "1");
         await signInWithRedirect(auth, provider);
