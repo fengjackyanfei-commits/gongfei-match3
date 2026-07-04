@@ -697,6 +697,7 @@
       return {
         user: null,
         guest: false,
+        updatedAt: 0,
         maxUnlocked: 1,
         stars: {},
         coins: 120,
@@ -715,9 +716,37 @@
     }
 
     function save() {
+      state.updatedAt = Date.now();
       localStorage.setItem(saveKey, JSON.stringify(state));
       renderShell();
+      window.firebaseCloud?.scheduleSave(state);
     }
+
+    window.gameCloudBridge = {
+      getLocalSave: () => ({ ...state }),
+      applyCloudSave(cloudSave, firebaseUser) {
+        const user = {
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email || "Google 玩家",
+          email: firebaseUser.email || "",
+          picture: firebaseUser.photoURL || ""
+        };
+        state = { ...defaultSave(), ...cloudSave, user, guest: false };
+        localStorage.setItem(saveKey, JSON.stringify(state));
+        renderShell();
+      },
+      setFirebaseUser(firebaseUser) {
+        state.user = firebaseUser ? {
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email || "Google 玩家",
+          email: firebaseUser.email || "",
+          picture: firebaseUser.photoURL || ""
+        } : null;
+        state.guest = false;
+        localStorage.setItem(saveKey, JSON.stringify(state));
+        renderShell();
+      }
+    };
 
     function initials(name) {
       return name.length > 2 ? name.slice(-2) : name;
@@ -1221,6 +1250,22 @@
       });
     }
 
+    function setupFirebaseGoogle() {
+      document.querySelector("#googleLogin").addEventListener("click", async () => {
+        if (!window.firebaseCloud) {
+          alert("云存档服务正在加载，请稍后再试。");
+          return;
+        }
+        try {
+          await window.firebaseCloud.signIn();
+        } catch (error) {
+          if (error?.code !== "auth/popup-closed-by-user") {
+            alert("Google 登录失败，请稍后重试。");
+          }
+        }
+      });
+    }
+
     document.querySelector("#guestLogin").addEventListener("click", () => {
       state.guest = true;
       state.user = null;
@@ -1256,9 +1301,88 @@
       renderShell();
     });
 
-    setupGoogle();
+    setupFirebaseGoogle();
     renderShell();
     setupDailyReward();
+  </script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+    import { doc, getDoc, getFirestore, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCEsxzPapIGmscl47IvQSj-_opQ5xQcpSg",
+      authDomain: "gongfei-match3.firebaseapp.com",
+      projectId: "gongfei-match3",
+      storageBucket: "gongfei-match3.firebasestorage.app",
+      messagingSenderId: "908844567115",
+      appId: "1:908844567115:web:d3b7c10f2c9b549e75dbce"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+    let saveTimer;
+
+    function cleanSave(source) {
+      return {
+        updatedAt: Number(source.updatedAt) || Date.now(),
+        maxUnlocked: Number(source.maxUnlocked) || 1,
+        stars: source.stars || {},
+        coins: Number(source.coins) || 0,
+        lives: Number(source.lives) || 0,
+        lastDaily: source.lastDaily || "",
+        boosters: source.boosters || { hammer: 0, shuffle: 0, extraMoves: 0 }
+      };
+    }
+
+    async function uploadSave(source) {
+      if (!auth.currentUser) return;
+      await setDoc(doc(db, "players", auth.currentUser.uid), {
+        ...cleanSave(source),
+        profile: {
+          name: auth.currentUser.displayName || "",
+          email: auth.currentUser.email || "",
+          picture: auth.currentUser.photoURL || ""
+        },
+        syncedAt: serverTimestamp()
+      }, { merge: true });
+    }
+
+    window.firebaseCloud = {
+      signIn: () => signInWithPopup(auth, provider),
+      scheduleSave(source) {
+        if (!auth.currentUser) return;
+        clearTimeout(saveTimer);
+        const snapshot = cleanSave(source);
+        saveTimer = setTimeout(() => uploadSave(snapshot).catch(console.error), 500);
+      }
+    };
+
+    onAuthStateChanged(auth, async firebaseUser => {
+      if (!firebaseUser) return;
+      try {
+        const local = cleanSave(window.gameCloudBridge.getLocalSave());
+        const ref = doc(db, "players", firebaseUser.uid);
+        const snapshot = await getDoc(ref);
+        if (!snapshot.exists()) {
+          window.gameCloudBridge.setFirebaseUser(firebaseUser);
+          await uploadSave(local);
+          return;
+        }
+        const cloud = snapshot.data();
+        if ((Number(cloud.updatedAt) || 0) >= local.updatedAt) {
+          window.gameCloudBridge.applyCloudSave(cleanSave(cloud), firebaseUser);
+        } else {
+          window.gameCloudBridge.setFirebaseUser(firebaseUser);
+          await uploadSave(local);
+        }
+      } catch (error) {
+        console.error("Cloud save sync failed", error);
+        window.gameCloudBridge.setFirebaseUser(firebaseUser);
+      }
+    });
   </script>
 </body>
 </html>
