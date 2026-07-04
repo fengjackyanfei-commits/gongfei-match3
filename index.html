@@ -793,6 +793,77 @@
       background: linear-gradient(#43c3ff,#1998ec);
       box-shadow: 0 5px 0 #0875ba;
     }
+    .board {
+      display: block;
+      position: relative;
+      height: min(92vw, 510px);
+      min-height: 390px;
+      aspect-ratio: auto;
+      overflow: visible;
+    }
+    .tile {
+      position: absolute;
+      width: 14%;
+      height: 14%;
+      min-height: 0;
+      padding: 2px;
+      transition: transform .15s ease, filter .15s ease, opacity .18s ease;
+    }
+    .tile.covered {
+      filter: brightness(.56) saturate(.7);
+      cursor: not-allowed;
+    }
+    .tile.covered::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 6px;
+      background: rgba(25,42,18,.16);
+    }
+    .tile.pickable { animation: cardBreath 1.8s ease-in-out infinite alternate; }
+    .tile.picked {
+      opacity: 0;
+      transform: translateY(22px) scale(.7);
+      pointer-events: none;
+    }
+    @keyframes cardBreath {
+      from { filter: brightness(.98); }
+      to { filter: brightness(1.08); }
+    }
+    .tray {
+      position: relative;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      min-height: 58px;
+      margin: 13px -4px -4px;
+      padding: 7px;
+      border: 4px solid var(--outline);
+      border-radius: 10px;
+      background:
+        repeating-linear-gradient(90deg,transparent 0 13.9%,rgba(54,31,13,.42) 14% 14.5%),
+        linear-gradient(#a86425,#7f4217);
+      box-shadow: inset 0 0 0 3px #d89340;
+    }
+    .tray-slot {
+      display: grid;
+      place-items: center;
+      min-width: 0;
+      aspect-ratio: .82;
+      border-radius: 6px;
+      background: rgba(75,38,13,.28);
+    }
+    .tray-slot .avatar {
+      width: 94%;
+      border: 2px solid var(--outline);
+      border-radius: 6px;
+      background: var(--cream);
+    }
+    .tray.danger { animation: trayDanger .45s ease-in-out infinite alternate; }
+    @keyframes trayDanger {
+      to { box-shadow: inset 0 0 0 3px #ffda45,0 0 18px #ef332f; }
+    }
     @media(min-width:700px) {
       body { padding: 20px; }
       .app { border: 5px solid rgba(35,55,25,.28); background: rgba(185,247,127,.88); }
@@ -845,11 +916,12 @@
           <div class="hud">
             <div class="stat"><span>关卡</span><b id="levelNo">1</b></div>
             <div class="stat"><span>分数</span><b id="score">0</b></div>
-            <div class="stat"><span>步数</span><b id="moves">30</b></div>
-            <div class="stat"><span>连击</span><b id="combo">0</b></div>
+            <div class="stat"><span>剩余</span><b id="moves">0</b></div>
+            <div class="stat"><span>卡槽</span><b id="combo">0</b></div>
           </div>
           <div class="board-wrap">
             <div id="board" class="board" aria-label="消消乐棋盘"></div>
+            <div id="tray" class="tray" aria-label="七格卡槽"></div>
             <div id="message" class="message" aria-live="polite"></div>
           </div>
         </section>
@@ -866,9 +938,9 @@
           <section class="panel flat">
             <h2 style="margin:0">道具</h2>
             <div class="boosters">
-              <button class="booster" id="hammer" type="button"><span>✦</span><small>锤子</small></button>
-              <button class="booster" id="shuffle" type="button"><span>↻</span><small>重排</small></button>
-              <button class="booster" id="extraMoves" type="button"><span>+5</span><small>步数</small></button>
+              <button class="booster" id="hammer" type="button"><span>↗</span><small>移出</small></button>
+              <button class="booster" id="shuffle" type="button"><span>↻</span><small>洗牌</small></button>
+              <button class="booster" id="extraMoves" type="button"><span>↶</span><small>撤回</small></button>
             </div>
           </section>
 
@@ -898,7 +970,7 @@
     <div class="dialog">
       <div class="reward-icon">🎁</div>
       <h2>每日登录奖励</h2>
-      <p>连续登录可获得更多奖励。今天送你 50 金币和 1 个锤子！</p>
+      <p>连续登录可获得更多奖励。今天送你 50 金币和 1 个移出道具！</p>
       <button id="claimDaily" type="button">开心收下</button>
     </div>
   </div>
@@ -925,7 +997,6 @@
 
   <script>
     const GOOGLE_CLIENT_ID = "908844567115-s8qk27t1n3bi56ssjth8evifbjss4dkg.apps.googleusercontent.com";
-    const size = 8;
     const saveKey = "cpc-match3-save-v2";
 
     const people = [
@@ -940,41 +1011,36 @@
 
     const levels = Array.from({ length: 30 }, (_, i) => {
       const n = i + 1;
-      const collectId = i % people.length;
-      const blockerEvery = n > 5 ? Math.max(9, 16 - Math.floor(n / 3)) : 0;
+      const cards = n === 1 ? 27 : n === 2 ? 90 : Math.min(108, 54 + Math.floor(n / 3) * 9);
       return {
         id: n,
-        moves: Math.max(18, 32 - Math.floor(n / 2)),
-        targetScore: 900 + n * 260,
-        collectId,
-        collectCount: 6 + Math.floor(n * 1.4),
-        blockerCount: n > 5 ? Math.min(18, 2 + Math.floor(n / 2)) : 0,
-        blockerEvery,
-        unlockText: n <= 5 ? "基础收集目标" : n <= 15 ? "加入障碍格与更高分数线" : "高压力步数与组合目标",
-        starScores: [900 + n * 260, 1300 + n * 340, 1800 + n * 430]
+        cards,
+        types: n === 1 ? 5 : Math.min(people.length, 5 + Math.floor(n / 2)),
+        unlockText: n === 1 ? "新手关：三张相同卡牌即可消除" :
+          n === 2 ? "超难第二关：多层遮挡，七格卡槽放满即失败" :
+          "多层叠牌挑战：合理控制卡槽，清空全部卡牌",
+        starScores: [Math.floor(cards * 12), Math.floor(cards * 16), Math.floor(cards * 20)]
       };
     });
 
     let state = loadSave();
-    let grid = [];
-    let blockers = new Set();
-    let selected = null;
+    let cards = [];
+    let tray = [];
+    let lastMove = null;
     let busy = false;
     let activeLevel = levels[0];
     let score = 0;
     let moves = 0;
     let combo = 0;
-    let collected = {};
-    let hammerMode = false;
     let audioOn = true;
     let audioContext = null;
-    let touchStart = null;
     let lastVoiceAt = 0;
 
     const el = {
       home: document.querySelector("#homeScreen"),
       game: document.querySelector("#gameScreen"),
       board: document.querySelector("#board"),
+      tray: document.querySelector("#tray"),
       map: document.querySelector("#levelMap"),
       roster: document.querySelector("#roster"),
       userChip: document.querySelector("#userChip"),
@@ -1169,265 +1235,189 @@
     }
 
     function createBoard(level) {
-      grid = Array.from({ length: size }, () => Array(size).fill(0));
-      blockers = new Set();
-      for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-          let value = randomPiece();
-          while ((c >= 2 && grid[r][c - 1] === value && grid[r][c - 2] === value) ||
-                 (r >= 2 && grid[r - 1][c] === value && grid[r - 2][c] === value)) {
-            value = randomPiece();
-          }
-          grid[r][c] = value;
+      cards = [];
+      tray = [];
+      lastMove = null;
+      const layerCounts = level.id === 1 ? [12, 9, 6] :
+        level.id === 2 ? [30, 24, 21, 15] :
+        splitIntoLayers(level.cards, Math.min(5, 3 + Math.floor(level.id / 6)));
+      let cardId = 0;
+      layerCounts.forEach((count, z) => {
+        const positions = layerPositions(count, z, level.id);
+        const types = [];
+        for (let i = 0; i < count / 3; i++) {
+          const type = (i + z * 2 + level.id) % level.types;
+          types.push(type, type, type);
         }
+        shuffleArray(types);
+        positions.forEach((pos, index) => cards.push({
+          id: cardId++,
+          type: types[index],
+          x: pos.x,
+          y: pos.y,
+          z,
+          removed: false
+        }));
+      });
+    }
+
+    function splitIntoLayers(total, layerCount) {
+      const counts = Array(layerCount).fill(0);
+      let triples = total / 3;
+      for (let i = 0; i < triples; i++) counts[i % layerCount] += 3;
+      return counts;
+    }
+
+    function layerPositions(count, z, levelId) {
+      const result = [];
+      const cols = levelId === 1 ? 4 : z % 2 ? 5 : 6;
+      const rows = Math.ceil(count / cols);
+      const xGap = levelId === 1 ? 19 : cols === 6 ? 14 : 16;
+      const yGap = Math.min(13.5, 68 / Math.max(rows - 1, 1));
+      const width = (cols - 1) * xGap;
+      const height = (rows - 1) * yGap;
+      const offset = z % 2 ? 4 : 0;
+      for (let i = 0; i < count; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        result.push({
+          x: 50 - width / 2 + col * xGap + offset,
+          y: 48 - height / 2 + row * yGap + (z % 3) * 1.2
+        });
       }
-      if (level.blockerCount) {
-        const cells = [];
-        for (let r = 1; r < size - 1; r++) {
-          for (let c = 1; c < size - 1; c++) cells.push(`${r},${c}`);
-        }
-        shuffleArray(cells);
-        cells.slice(0, level.blockerCount).forEach(key => blockers.add(key));
-      }
+      shuffleArray(result);
+      return result;
+    }
+
+    function isCovered(card) {
+      return cards.some(other =>
+        !other.removed && other.z > card.z &&
+        Math.abs(other.x - card.x) < 12 &&
+        Math.abs(other.y - card.y) < 11
+      );
     }
 
     function startLevel(id) {
       if (state.lives <= 0) {
-        alert("体力不足，稍后再来吧。完成每日签到可以获得补给！");
+        alert("体力不足，完成每日签到可以获得补给！");
         return;
       }
       playSound("tap");
       activeLevel = levels[id - 1] || levels[0];
       score = 0;
-      moves = activeLevel.moves;
+      moves = 0;
       combo = 0;
-      collected = {};
-      selected = null;
       busy = false;
-      hammerMode = false;
       el.message.textContent = "";
       createBoard(activeLevel);
-      ensurePlayable();
       show("game");
       renderGame();
     }
 
-    function renderGame(clearing = new Set()) {
+    function renderGame() {
+      const remaining = cards.filter(card => !card.removed).length;
       el.levelNo.textContent = activeLevel.id;
       el.score.textContent = score;
-      el.moves.textContent = moves;
-      el.combo.textContent = combo;
+      el.moves.textContent = remaining;
+      el.combo.textContent = tray.length;
       el.levelText.textContent = activeLevel.unlockText;
       renderGoals();
       el.board.innerHTML = "";
-      for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-          const piece = grid[r][c];
-          const key = `${r},${c}`;
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "tile";
-          if (selected && selected.r === r && selected.c === c) btn.classList.add("selected");
-          if (clearing.has(key)) btn.classList.add("clearing");
-          if (blockers.has(key)) btn.classList.add("blocker");
-          btn.setAttribute("aria-label", `${people[piece].name}，第 ${r + 1} 行第 ${c + 1} 列`);
-          btn.innerHTML = avatar(piece);
-          btn.addEventListener("click", () => chooseTile(r, c));
-          btn.addEventListener("pointerdown", event => {
-            touchStart = { r, c, x: event.clientX, y: event.clientY };
-          });
-          btn.addEventListener("pointerup", event => {
-            if (!touchStart || touchStart.r !== r || touchStart.c !== c || busy) return;
-            const dx = event.clientX - touchStart.x;
-            const dy = event.clientY - touchStart.y;
-            touchStart = null;
-            if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
-            const target = Math.abs(dx) > Math.abs(dy)
-              ? { r, c: c + (dx > 0 ? 1 : -1) }
-              : { r: r + (dy > 0 ? 1 : -1), c };
-            if (target.r >= 0 && target.r < size && target.c >= 0 && target.c < size) {
-              selected = null;
-              playerSwap({ r, c }, target);
-            }
-          });
-          el.board.appendChild(btn);
-        }
-      }
-      document.querySelector("#hammer small").textContent = `锤子 x${state.boosters.hammer}`;
-      document.querySelector("#shuffle small").textContent = `重排 x${state.boosters.shuffle}`;
-      document.querySelector("#extraMoves small").textContent = `步数 x${state.boosters.extraMoves}`;
+      [...cards].sort((a, b) => a.z - b.z || a.id - b.id).forEach(card => {
+        if (card.removed) return;
+        const covered = isCovered(card);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `tile ${covered ? "covered" : "pickable"}`;
+        btn.style.left = `${card.x - 7}%`;
+        btn.style.top = `${card.y - 7}%`;
+        btn.style.zIndex = String(card.z * 100 + card.id);
+        btn.setAttribute("aria-label", `${people[card.type].name}${covered ? "，被遮挡" : "，可点击"}`);
+        btn.disabled = covered || busy;
+        btn.innerHTML = avatar(card.type);
+        btn.addEventListener("click", () => pickCard(card.id));
+        el.board.appendChild(btn);
+      });
+      renderTray();
+      document.querySelector("#hammer span").textContent = "↗";
+      document.querySelector("#hammer small").textContent = `移出 x${state.boosters.hammer}`;
+      document.querySelector("#shuffle span").textContent = "↻";
+      document.querySelector("#shuffle small").textContent = `洗牌 x${state.boosters.shuffle}`;
+      document.querySelector("#extraMoves span").textContent = "↶";
+      document.querySelector("#extraMoves small").textContent = `撤回 x${state.boosters.extraMoves}`;
+    }
+
+    function renderTray() {
+      el.tray.classList.toggle("danger", tray.length >= 6);
+      el.tray.innerHTML = Array.from({ length: 7 }, (_, index) =>
+        `<div class="tray-slot">${tray[index] === undefined ? "" : avatar(tray[index].type)}</div>`
+      ).join("");
     }
 
     function renderGoals() {
-      const collectNow = collected[activeLevel.collectId] || 0;
-      const blockersLeft = blockers.size;
-      const goals = [
-        ["分数", `${Math.min(score, activeLevel.targetScore)} / ${activeLevel.targetScore}`],
-        [`收集 ${people[activeLevel.collectId].name}`, `${Math.min(collectNow, activeLevel.collectCount)} / ${activeLevel.collectCount}`]
-      ];
-      if (activeLevel.blockerCount) goals.push(["清除障碍", `${activeLevel.blockerCount - blockersLeft} / ${activeLevel.blockerCount}`]);
-      el.goals.innerHTML = goals.map(([name, value]) => `<div class="goal"><span>${name}</span><span>${value}</span></div>`).join("");
+      const remaining = cards.filter(card => !card.removed).length;
+      el.goals.innerHTML = [
+        ["清空卡牌", `${activeLevel.cards - remaining} / ${activeLevel.cards}`],
+        ["卡槽", `${tray.length} / 7`]
+      ].map(([name, value]) => `<div class="goal"><span>${name}</span><span>${value}</span></div>`).join("");
     }
 
-    function chooseTile(r, c) {
-      if (busy || moves <= 0) return;
-      const key = `${r},${c}`;
-      if (hammerMode) {
-        useHammer(r, c);
-        return;
-      }
-      if (blockers.has(key)) {
-        el.message.textContent = "障碍格需要通过相邻消除或锤子清除。";
-        return;
-      }
-      const current = { r, c };
-      if (!selected) {
-        selected = current;
-        renderGame();
-        return;
-      }
-      if (selected.r === r && selected.c === c) {
-        selected = null;
-        renderGame();
-        return;
-      }
-      if (!adjacent(selected, current)) {
-        selected = current;
-        renderGame();
-        return;
-      }
-      playerSwap(selected, current);
-    }
-
-    async function playerSwap(a, b) {
-      busy = true;
-      el.message.textContent = "";
-      swap(a, b);
-      let matches = findMatches();
-      if (!matches.size) {
-        swap(a, b);
-        selected = null;
-        busy = false;
-        el.message.textContent = "这一步没有形成消除。";
+    async function pickCard(id) {
+      if (busy) return;
+      const card = cards.find(item => item.id === id);
+      if (!card || card.removed || isCovered(card)) {
+        el.message.textContent = "这张牌被上层卡牌压住了。";
         playSound("error");
-        renderGame();
         return;
       }
-      moves--;
-      playSound("swap");
-      selected = null;
-      await resolveMatches(0);
-      busy = false;
-      checkEnd();
+      busy = true;
+      card.removed = true;
+      moves++;
+      const insertAt = tray.reduce((last, item, index) => item.type === card.type ? index + 1 : last, tray.length);
+      tray.splice(insertAt, 0, { id: card.id, type: card.type });
+      lastMove = { id: card.id, matched: false };
+      score += 10;
+      playSound("tap");
       renderGame();
-    }
-
-    function adjacent(a, b) {
-      return Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
-    }
-
-    function swap(a, b) {
-      const t = grid[a.r][a.c];
-      grid[a.r][a.c] = grid[b.r][b.c];
-      grid[b.r][b.c] = t;
-    }
-
-    function findMatches() {
-      const matches = new Set();
-      for (let r = 0; r < size; r++) {
-        let run = 1;
-        for (let c = 1; c <= size; c++) {
-          if (c < size && grid[r][c] === grid[r][c - 1] && !blockers.has(`${r},${c}`) && !blockers.has(`${r},${c - 1}`)) {
-            run++;
-          } else {
-            if (run >= 3) for (let i = 0; i < run; i++) matches.add(`${r},${c - 1 - i}`);
-            run = 1;
+      await wait(160);
+      const same = tray.filter(item => item.type === card.type);
+      if (same.length >= 3) {
+        let removed = 0;
+        tray = tray.filter(item => {
+          if (item.type === card.type && removed < 3) {
+            removed++;
+            return false;
           }
-        }
-      }
-      for (let c = 0; c < size; c++) {
-        let run = 1;
-        for (let r = 1; r <= size; r++) {
-          if (r < size && grid[r][c] === grid[r - 1][c] && !blockers.has(`${r},${c}`) && !blockers.has(`${r - 1},${c}`)) {
-            run++;
-          } else {
-            if (run >= 3) for (let i = 0; i < run; i++) matches.add(`${r - 1 - i},${c}`);
-            run = 1;
-          }
-        }
-      }
-      return matches;
-    }
-
-    async function resolveMatches(startCombo) {
-      let matches = findMatches();
-      let localCombo = startCombo;
-      while (matches.size) {
-        localCombo++;
-        combo = localCombo;
-        for (const key of Array.from(matches)) clearAdjacentBlockers(key);
-        for (const key of matches) {
-          const [r, c] = key.split(",").map(Number);
-          const piece = grid[r][c];
-          collected[piece] = (collected[piece] || 0) + 1;
-        }
-        score += matches.size * 10 * localCombo + Math.max(0, matches.size - 3) * 20;
-        playSound(localCombo > 1 ? "combo" : "match", localCombo);
-        if (localCombo >= 2 && Math.random() < .42) speakPraise(localCombo >= 3 ? "完美" : "真棒");
-        renderGame(matches);
-        await wait(220);
-        for (const key of matches) {
-          const [r, c] = key.split(",").map(Number);
-          grid[r][c] = null;
-        }
-        collapse();
-        fill();
+          return true;
+        });
+        combo++;
+        score += 90 + combo * 20;
+        lastMove.matched = true;
+        playSound(combo > 1 ? "combo" : "match", combo);
+        if (Math.random() < .55) speakPraise(combo > 2 ? "完美" : "真棒");
         renderGame();
-        await wait(160);
-        matches = findMatches();
+        await wait(180);
+      } else {
+        combo = 0;
       }
-      ensurePlayable();
-    }
-
-    function clearAdjacentBlockers(key) {
-      const [r, c] = key.split(",").map(Number);
-      [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].forEach(([rr, cc]) => blockers.delete(`${rr},${cc}`));
-    }
-
-    function collapse() {
-      for (let c = 0; c < size; c++) {
-        const kept = [];
-        for (let r = size - 1; r >= 0; r--) {
-          if (grid[r][c] !== null) kept.push(grid[r][c]);
-        }
-        for (let r = size - 1; r >= 0; r--) grid[r][c] = kept[size - 1 - r] ?? null;
-      }
-    }
-
-    function fill() {
-      for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-          if (grid[r][c] === null) grid[r][c] = randomPiece();
-        }
-      }
+      busy = false;
+      renderGame();
+      checkEnd();
     }
 
     function goalsMet() {
-      const collectDone = (collected[activeLevel.collectId] || 0) >= activeLevel.collectCount;
-      const blockerDone = !activeLevel.blockerCount || blockers.size === 0;
-      return score >= activeLevel.targetScore && collectDone && blockerDone;
+      return cards.every(card => card.removed) && tray.length === 0;
     }
 
     function starsEarned() {
-      let stars = 0;
-      activeLevel.starScores.forEach(target => { if (score >= target) stars++; });
-      if (goalsMet()) stars = Math.max(1, stars);
-      return stars;
+      if (!goalsMet()) return 0;
+      const usedBoosters = moves > activeLevel.cards ? 1 : 0;
+      return activeLevel.id === 2 ? Math.max(1, 3 - usedBoosters) : 3;
     }
 
     function checkEnd() {
       if (goalsMet()) return finishLevel(true);
-      if (moves <= 0) return finishLevel(false);
+      if (tray.length >= 7) return finishLevel(false);
     }
 
     function finishLevel(won) {
@@ -1453,67 +1443,57 @@
       el.modal.classList.add("active");
     }
 
-    function useHammer(r, c) {
-      if (state.boosters.hammer <= 0) return;
+    function useHammer() {
+      if (busy || state.boosters.hammer <= 0 || !tray.length) return;
       state.boosters.hammer--;
-      state.coins = Math.max(0, state.coins - 5);
-      blockers.delete(`${r},${c}`);
-      collected[grid[r][c]] = (collected[grid[r][c]] || 0) + 1;
-      grid[r][c] = randomPiece();
-      hammerMode = false;
+      const rescued = tray.splice(0, Math.min(3, tray.length));
+      const topZ = Math.max(...cards.map(card => card.z), 0) + 1;
+      rescued.forEach((item, index) => {
+        const card = cards.find(entry => entry.id === item.id);
+        if (!card) return;
+        card.removed = false;
+        card.z = topZ;
+        card.x = 35 + index * 15;
+        card.y = 88;
+      });
+      lastMove = null;
       save();
+      playSound("swap");
+      el.message.textContent = "已将卡槽中的牌移回牌面。";
       renderGame();
-      checkEnd();
     }
 
     function useShuffle() {
       if (busy || state.boosters.shuffle <= 0) return;
       state.boosters.shuffle--;
       state.coins = Math.max(0, state.coins - 8);
-      const pieces = [];
-      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) pieces.push(grid[r][c]);
-      shuffleArray(pieces);
-      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) grid[r][c] = pieces.pop();
+      const remaining = cards.filter(card => !card.removed);
+      const types = remaining.map(card => card.type);
+      shuffleArray(types);
+      remaining.forEach((card, index) => { card.type = types[index]; });
       save();
-      ensurePlayable();
+      playSound("swap");
+      el.message.textContent = "未进入卡槽的牌已重新洗牌。";
       renderGame();
     }
 
     function useExtraMoves() {
-      if (busy || state.boosters.extraMoves <= 0) return;
+      if (busy || state.boosters.extraMoves <= 0 || !lastMove || lastMove.matched) {
+        el.message.textContent = "当前没有可以撤回的操作。";
+        return;
+      }
       state.boosters.extraMoves--;
-      moves += 5;
-      state.coins = Math.max(0, state.coins - 10);
+      const index = tray.findIndex(item => item.id === lastMove.id);
+      const card = cards.find(item => item.id === lastMove.id);
+      if (index >= 0) tray.splice(index, 1);
+      if (card) card.removed = false;
+      score = Math.max(0, score - 10);
+      moves = Math.max(0, moves - 1);
+      lastMove = null;
       save();
+      playSound("swap");
+      el.message.textContent = "已撤回上一步。";
       renderGame();
-    }
-
-    function hasMove() {
-      for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-          if (blockers.has(`${r},${c}`)) continue;
-          const here = { r, c };
-          const neighbors = [{ r: r + 1, c }, { r, c: c + 1 }];
-          for (const next of neighbors) {
-            if (next.r >= size || next.c >= size || blockers.has(`${next.r},${next.c}`)) continue;
-            swap(here, next);
-            const ok = findMatches().size > 0;
-            swap(here, next);
-            if (ok) return true;
-          }
-        }
-      }
-      return false;
-    }
-
-    function ensurePlayable() {
-      let attempts = 0;
-      while (!hasMove() && attempts < 8) {
-        for (let r = 0; r < size; r++) {
-          for (let c = 0; c < size; c++) if (!blockers.has(`${r},${c}`)) grid[r][c] = randomPiece();
-        }
-        attempts++;
-      }
     }
 
     function shuffleArray(arr) {
@@ -1647,11 +1627,7 @@
     });
     document.querySelector("#continueBtn").addEventListener("click", () => startLevel(state.maxUnlocked));
     document.querySelector("#backHome").addEventListener("click", () => { show("home"); renderShell(); });
-    document.querySelector("#hammer").addEventListener("click", () => {
-      if (state.boosters.hammer <= 0) return;
-      hammerMode = !hammerMode;
-      el.message.textContent = hammerMode ? "选择一个格子使用锤子。" : "";
-    });
+    document.querySelector("#hammer").addEventListener("click", useHammer);
     document.querySelector("#shuffle").addEventListener("click", useShuffle);
     document.querySelector("#extraMoves").addEventListener("click", useExtraMoves);
     document.querySelector("#retryLevel").addEventListener("click", () => {
